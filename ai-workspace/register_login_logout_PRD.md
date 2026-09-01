@@ -1,5 +1,5 @@
 Date created: 2026-09-02
-Date last modified: 2026-09-02 (Phase 3 COMPLETED — auth API endpoints)
+Date last modified: 2026-09-02 (home → login; full implementation record in PRD)
 
 # Register / Login / Logout - Technical PRD
 
@@ -25,6 +25,7 @@ We believe that providing instructor register, login, and logout with a D1-backe
 - `UserService` with create, update, and delete (plus read-by-email for login validation)
 - HTTP endpoints: **register**, **login**, **logout** that use `UserService` for DB access and credential validation
 - UI pages: **Register**, **Login**, **Logout**
+- App root `/` redirects to the **Login** page (default entry)
 - After successful login, redirect to a **blank MCQ placeholder page** (no MCQ logic)
 - Vitest unit tests per implementation phase (TDD); green tests gate acceptance criteria
 - Input validation with Zod on all register/login inputs
@@ -146,30 +147,42 @@ Endpoints live under `src/app/api/`. They call `UserService` for persistence and
 
 ### User Interface Requirements
 
-#### Register (`/register`)
-- Fields: First name, Last name, Email, Password (and optional Confirm password for UX)
-- Client-side required-field checks; server remains source of truth via Zod
-- Submit → `POST /api/auth/register`
-- On success: navigate to `/login` (or auto-prompt login); show success message
-- On error: show API error (validation / duplicate email)
-- Link to Login page
+#### Home (`/`) — IMPLEMENTED
+- **Page:** `src/app/page.tsx`
+- Replaces the Next.js starter page
+- Server `redirect()` to `/login` (`AUTH_ROUTES.login`) so the app opens on the instructor login screen
 
-#### Login (`/login`)
+#### Register (`/register`) — IMPLEMENTED (Phase 4)
+- **Page:** `src/app/register/page.tsx` — centered shadcn layout wrapping `SignupForm`
+- **Form:** `src/components/signup-form.tsx` (shadcn Card/Field/Input block)
+- Fields: First name, Last name, Email, Password, Confirm password
+- Submit → `POST /api/auth/register` with `{ firstName, lastName, email, password }`
+- On success: navigate to `/login` via `redirectAfterRegister()`
+- On error: show mapped message (duplicate email → “An account with this email already exists.”)
+- Link to Login: `/login`
+- **Not included (out of scope):** Sign up with Google
+
+#### Login (`/login`) — IMPLEMENTED (Phase 4)
+- **Page:** `src/app/login/page.tsx` — centered shadcn layout wrapping `LoginForm`
+- **Form:** `src/components/login-form.tsx` (shadcn Card/Field/Input block)
 - Fields: Email (username), Password
 - Submit → `POST /api/auth/login`
-- On success: navigate to blank MCQ placeholder `/mcq` (or `/quizzes` — pick one path and keep it consistent)
-- On error: show generic “Invalid email or password”
-- Link to Register page
+- On success: navigate to blank `/mcq` via `redirectAfterLogin()`
+- On error: generic “Invalid email or password.”
+- Link to Register: `/register`
+- **Not included (out of scope):** Login with Google, Forgot password
 
-#### Logout (`/logout`)
-- Simple confirmation or immediate action page/control
-- Calls `POST /api/auth/logout`, then redirects to `/login`
-- Clears any client-only user info held in memory/UI state (no cookies/sessions in this phase)
+#### Logout (`/logout`) — IMPLEMENTED (Phase 4)
+- **Page:** `src/app/logout/page.tsx`
+- On mount: calls `POST /api/auth/logout`, then redirects to `/login`
+- Retry button if the logout request fails
+- No cookies/sessions cleared (none exist in this feature)
 
-#### MCQ placeholder (`/mcq`) — blank
-- Empty page shell (title such as “MCQ Question Bank — coming soon”)
-- No question CRUD, no banks, no instructor tooling beyond proving post-login landing works
-- Optional link to Logout
+#### MCQ placeholder (`/mcq`) — IMPLEMENTED (Phase 4)
+- **Page:** `src/app/mcq/page.tsx`
+- Title: “MCQ Question Bank”; copy: coming soon / blank shell
+- Link to `/logout`
+- No question CRUD or banks
 
 ### UserService
 
@@ -330,7 +343,7 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 ---
 
-### Phase 4: UI navigation helpers + pages (register / login / logout + blank MCQ) - PLANNED
+### Phase 4: UI navigation helpers + pages (register / login / logout + blank MCQ) - COMPLETED
 
 **Objective:** Instructors use UI to register, log in (land on blank `/mcq`), and log out (return to `/login`). Pure navigation/result helpers are TDD’d; pages wire to APIs.
 
@@ -343,26 +356,25 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 | Step | Action |
 |------|--------|
-| Red | Write Vitest tests for pure auth UI helpers (redirect targets, success/error mapping). Confirm red. |
-| Green | Implement helpers, then pages/components that use them and call APIs. |
-| Refactor | Align with shadcn/ui; stay green. |
-| PRD | Record pages + helpers; manual smoke notes; check remaining UI AC; mark Phase 4 `COMPLETED`. |
+| Red | ✅ Wrote `navigation.test.ts` (module missing). |
+| Green | ✅ Navigation helpers + shadcn signup/login forms wired to APIs; `/register`, `/login`, `/logout`, `/mcq`. `33` tests green. |
+| Refactor | ✅ Split first/last name for API; removed OAuth/forgot-password (out of scope). |
+| PRD | ✅ Snippets + paths below; Phase 4 marked `COMPLETED`. |
 
-**Planned Vitest cases:**
+**Vitest cases** — all green:
 
-`src/lib/auth/navigation.test.ts` (or `auth-ui.test.ts`)
+`src/lib/auth/navigation.test.ts`
 - `it('sends successful login to /mcq')`
 - `it('sends successful logout to /login')`
 - `it('sends successful register to /login')`
 - `it('maps duplicate-email register failure to a user-visible message')`
 - `it('maps invalid login to a generic credentials message')`
+- `it('uses /login as the app entry route from home')`
 
-**UI build tasks (after helpers are green):**
-1. `/register`, `/login`, `/logout`, `/mcq` using existing shadcn primitives  
-2. Wire forms to auth APIs; blank `/mcq` shell only  
-3. Manual smoke: register → login → `/mcq` → logout → `/login`  
-
-**Deliverables:** auth navigation helper + tests, pages under `src/app/{register,login,logout,mcq}`, green full suite, feature AC checked  
+**UI deliverables:**
+- `src/components/signup-form.tsx`, `src/components/login-form.tsx` (shadcn block + API wiring)
+- Pages: `/register`, `/login`, `/logout`, `/mcq` (blank placeholder)
+- Manual smoke: register → login → `/mcq` → logout → `/login`
 
 **Depends on:** Phase 3 `COMPLETED` + Phase 4 go-ahead  
 
@@ -410,16 +422,19 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 | `src/app/api/auth/login/route.ts` | `POST /api/auth/login` |
 | `src/app/api/auth/logout/route.ts` | `POST /api/auth/logout` |
 
-#### Planned (later phases)
+#### Implemented (Phase 4)
 
 | Path | Purpose |
 |------|---------|
 | `src/lib/auth/navigation.ts` | Post-auth redirect / error mapping helpers |
 | `src/lib/auth/navigation.test.ts` | Phase 4 navigation Vitest cases |
+| `src/components/signup-form.tsx` | shadcn signup form wired to `POST /api/auth/register` |
+| `src/components/login-form.tsx` | shadcn login form wired to `POST /api/auth/login` |
 | `src/app/register/page.tsx` | Register UI |
 | `src/app/login/page.tsx` | Login UI |
-| `src/app/logout/page.tsx` | Logout UI |
+| `src/app/logout/page.tsx` | Logout UI (calls API then redirects) |
 | `src/app/mcq/page.tsx` | Blank post-login placeholder |
+| `src/app/page.tsx` | Root `/` → server redirect to `/login` |
 
 ### Phase 1 code snippets
 
@@ -546,7 +561,123 @@ export async function POST(request: Request): Promise<Response> {
 
 **Ref**: `src/app/api/auth/register/route.ts:4-8` · **Phase**: 3 · **AC**: Register via UserService
 
-### Implementation Patterns (Phase 4+)
+### Phase 4 code snippets
+
+#### `src/lib/auth/navigation.ts` — redirect targets + error mapping
+
+```typescript
+export const AUTH_ROUTES = {
+  home: "/",
+  register: "/register",
+  login: "/login",
+  logout: "/logout",
+  mcq: "/mcq",
+  afterRegister: "/login",
+  afterLogin: "/mcq",
+  afterLogout: "/login",
+} as const;
+
+export function mapRegisterErrorMessage(status: number, body: { error?: string } | null): string {
+  if (status === 409) {
+    return "An account with this email already exists.";
+  }
+  // ...
+}
+
+export function mapLoginErrorMessage(status: number, body: { error?: string } | null): string {
+  if (status === 401) {
+    return "Invalid email or password.";
+  }
+  // ...
+}
+```
+
+**Ref**: `src/lib/auth/navigation.ts:1-48` · **Phase**: 4 · **AC**: redirects + user-visible error mapping
+
+#### `src/app/page.tsx` — default entry is login
+
+```tsx
+import { redirect } from "next/navigation";
+import { AUTH_ROUTES } from "@/lib/auth/navigation";
+
+export default function Home() {
+  redirect(AUTH_ROUTES.login);
+}
+```
+
+**Ref**: `src/app/page.tsx:1-6` · **Phase**: 4 · **AC**: App starts on login (not Next.js starter)
+
+#### `src/app/register/page.tsx` — shadcn page shell
+
+```tsx
+import { SignupForm } from "@/components/signup-form";
+
+export default function RegisterPage() {
+  return (
+    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+      <div className="w-full max-w-sm">
+        <SignupForm />
+      </div>
+    </div>
+  );
+}
+```
+
+**Ref**: `src/app/register/page.tsx:1-11` · **Phase**: 4 · **AC**: Register page UI  
+*(Login page uses the same shell with `LoginForm` — `src/app/login/page.tsx`)*
+
+#### `src/components/signup-form.tsx` — register → API → `/login`
+
+```tsx
+const response = await fetch("/api/auth/register", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ firstName, lastName, email, password }),
+});
+if (!response.ok) {
+  setError(mapRegisterErrorMessage(response.status, body));
+  return;
+}
+router.push(redirectAfterRegister());
+```
+
+**Ref**: `src/components/signup-form.tsx:49-64` · **Phase**: 4 · **AC**: Register page works against API
+
+#### `src/components/login-form.tsx` — login → API → `/mcq`
+
+```tsx
+const response = await fetch("/api/auth/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, password }),
+});
+if (!response.ok) {
+  setError(mapLoginErrorMessage(response.status, body));
+  return;
+}
+router.push(redirectAfterLogin());
+```
+
+**Ref**: `src/components/login-form.tsx` · **Phase**: 4 · **AC**: Login success navigates to blank `/mcq`
+
+#### Decisions (Phase 4)
+
+- Used shadcn block layout (Card / Field / Input / Button) from the provided signup/login fragments
+- Split Full Name into **firstName** + **lastName** to match API/schema
+- Removed Google OAuth and Forgot password controls (Out of Scope)
+- Styling: existing Tailwind + shadcn/ui primitives only
+- Replaced Next.js starter home with server redirect `/` → `/login`
+
+#### Manual smoke checklist (Phase 4)
+
+- [ ] Open `/` (or app root) → lands on login UI (`/login`)
+- [ ] Open `/register`, create account → lands on `/login`
+- [ ] Duplicate email shows “An account with this email already exists.”
+- [ ] Open `/login`, valid credentials → lands on `/mcq` blank placeholder
+- [ ] Invalid credentials show “Invalid email or password.”
+- [ ] From `/mcq`, Log out → `/logout` → `/login`
+
+### Implementation Patterns (complete for this feature)
 
 ### Important Notes
 
@@ -554,7 +685,10 @@ export async function POST(request: Request): Promise<Response> {
 - D1 only from server code; never import DB modules into `'use client'` components
 - Prefer numbered SQL placeholders (`?1`, `?2`)
 - No remote migration apply during agent work — Phase 1 applied **local only**
-- D1 database `quizmaker-db` exists remotely; schema migration has **not** been applied with `--remote`
+- D1 database `quizmaker-db` exists remotely; schema migration has **not** been applied with `--remote` by the agent (user-owned)
+- Phase 4 UI is client-side fetch to `/api/auth/*`; no tokens/cookies/sessions
+- shadcn signup/login blocks live in `src/components/{signup,login}-form.tsx`; pages only provide layout
+- App entry: `src/app/page.tsx` redirects `/` → `/login` (no Next.js marketing starter)
 - Living PRD rule: after each approved phase lands, record real paths, snippets, and test evidence here
 
 ### Tests (TDD plan ↔ acceptance criteria)
@@ -564,9 +698,9 @@ export async function POST(request: Request): Promise<Response> {
 | 1 | `migrations/users-schema.test.ts` | ✅ 5/5 green | D1/`users` schema AC; Vitest harness ready |
 | 2 | `password.test.ts`, `user-service.test.ts` | ✅ 12/12 green | Hashing + UserService CRUD AC |
 | 3 | `schemas.test.ts`, register/login/logout handler tests | ✅ 11/11 green | Register/login/logout API AC |
-| 4 | `navigation.test.ts` (auth UI helpers) | PLANNED | UI redirect AC (+ manual page smoke) |
+| 4 | `navigation.test.ts` (auth UI helpers) | ✅ 6/6 green | UI redirect AC (+ home → login; manual smoke) |
 
-**Phase 3 Vitest evidence:** `npm test` → `Test Files 7 passed` · `Tests 28 passed` (Phases 1–3)
+**Vitest evidence:** `npm test` → `Test Files 8 passed` · `Tests 34 passed` (Phases 1–4 + home route)
 
 ---
 
@@ -578,10 +712,11 @@ export async function POST(request: Request): Promise<Response> {
 - [x] `POST /api/auth/register` creates a user via `UserService` and returns 201 with safe fields *(Phase 3 — Vitest green)*
 - [x] `POST /api/auth/login` validates email + password via `UserService` and returns 200 with safe fields on success, 401 on failure *(Phase 3 — Vitest green)*
 - [x] `POST /api/auth/logout` returns 200 `{ "ok": true }` without requiring tokens/cookies/sessions *(Phase 3 — Vitest green)*
-- [ ] Register and Login pages work against the APIs; Login success navigates to blank `/mcq`
-- [ ] Logout UI calls logout endpoint and returns the instructor to `/login`
-- [ ] No token auth, cookies, session store, or MCQ business logic ships in this feature
-- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phases 1–3 done; continues for Phase 4)*
+- [x] Register and Login pages work against the APIs; Login success navigates to blank `/mcq` *(Phase 4 — navigation Vitest + shadcn UI wired)*
+- [x] Logout UI calls logout endpoint and returns the instructor to `/login` *(Phase 4)*
+- [x] App root `/` opens the login experience (redirect to `/login`; Next.js starter removed) *(Phase 4)*
+- [x] No token auth, cookies, session store, or MCQ business logic ships in this feature *(scope held through Phase 4)*
+- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phases 1–4 complete)*
 
 ---
 
@@ -656,14 +791,52 @@ export async function POST(request: Request): Promise<Response> {
 9. Prefer `UserService` + route handlers as specified; do not invent JWT/cookie/session behavior.
 10. Login identifier is **email** (username field on the form maps to email).
 11. Post-login destination is the blank **`/mcq`** page only.
-12. Keep all sections current; remove outdated claims.
+12. App root **`/`** must redirect to **`/login`** (default instructor entry).
+13. Keep all sections current; remove outdated claims.
+
+---
+
+## Complete Implementation Record (Phases 1–4)
+
+Consolidated inventory of what shipped for register / login / logout.
+
+### Route map
+
+| URL | Behavior |
+|-----|----------|
+| `/` | Server redirect → `/login` |
+| `/register` | shadcn signup → `POST /api/auth/register` → `/login` |
+| `/login` | shadcn login → `POST /api/auth/login` → `/mcq` |
+| `/mcq` | Blank MCQ placeholder + link to logout |
+| `/logout` | `POST /api/auth/logout` → `/login` |
+| `POST /api/auth/register` | Create user (201) / validate (400) / duplicate (409) |
+| `POST /api/auth/login` | Credential check (200/401); no tokens/cookies |
+| `POST /api/auth/logout` | `{ ok: true }` (200) |
+
+### Stack choices recorded
+
+| Concern | Choice |
+|---------|--------|
+| DB | Cloudflare D1 `quizmaker-db`, binding `DB` |
+| Migration | `migrations/0001_create_users.sql` (local apply; remote = user-owned) |
+| Password | Web Crypto PBKDF2 (`saltHex:hashHex`) |
+| Validation | Zod (`src/lib/auth/schemas.ts`) |
+| Domain | `UserService` in `src/lib/services/user-service.ts` |
+| HTTP | Thin App Router routes + handlers under `src/lib/auth/` |
+| UI | shadcn Card/Field/Input blocks + Tailwind |
+| Tests | Vitest TDD; `npm test` |
+
+### Git
+
+- Feature branch: `feature/register-login-logout`
+- Do not apply D1 migrations with `--remote` from the agent
 
 ---
 
 ## Current Status
 
 **Last Updated:** 2026-09-02  
-**Current Phase:** Phase 3 — Auth API endpoints  
-**Status:** COMPLETED — committing/pushing Phase 3 on `feature/register-login-logout`  
+**Current Phase:** Phase 4 complete + home → login entry  
+**Status:** COMPLETED — committing/pushing Phase 4 (+ home → login) on `feature/register-login-logout`  
 **Git:** Stay on `feature/register-login-logout`; never apply D1 migrations `--remote`  
-**Next Steps:** Await explicit go-ahead before starting Phase 4 (UI pages)
+**Next Steps:** Feature register/login/logout UI complete for this PRD; await further product work (e.g. MCQ) in a later PRD
