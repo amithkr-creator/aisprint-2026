@@ -1,5 +1,5 @@
 Date created: 2026-09-02
-Date last modified: 2026-09-02 (Phase 2 COMPLETED — password helper + UserService)
+Date last modified: 2026-09-02 (Phase 3 COMPLETED — auth API endpoints)
 
 # Register / Login / Logout - Technical PRD
 
@@ -288,7 +288,7 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 ---
 
-### Phase 3: Auth API endpoints (register / login / logout) - PLANNED
+### Phase 3: Auth API endpoints (register / login / logout) - COMPLETED
 
 **Objective:** HTTP handlers validate input and use `UserService` for register and credential login; logout acknowledges without sessions/tokens/cookies.
 
@@ -302,21 +302,21 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 | Step | Action |
 |------|--------|
-| Red | Write Zod schema + auth handler tests (mock `UserService`). Prefer testable handlers/helpers under `src/lib/` if route files are thin. Confirm red. |
-| Green | Implement schemas + register/login/logout routes/handlers until green. |
-| Refactor | Keep handlers thin; stay green. |
-| PRD | Record routes/snippets; check AC; mark Phase 3 `COMPLETED`. |
+| Red | ✅ Wrote schema + register/login/logout handler tests (modules missing). |
+| Green | ✅ Zod schemas + handlers + thin `src/app/api/auth/*/route.ts`. `28` tests green (Phases 1–3). |
+| Refactor | ✅ Handlers under `src/lib/auth/` with injectable `UserService` / password verifier. |
+| PRD | ✅ Snippets + paths below; Phase 3 marked `COMPLETED`. |
 
-**Planned Vitest cases:**
+**Vitest cases** — all green:
 
-`src/lib/auth/schemas.test.ts` (or equivalent)
+`src/lib/auth/schemas.test.ts`
 - `it('accepts a valid register payload')`
 - `it('rejects register when email is invalid')`
 - `it('rejects register when required fields are missing')`
 - `it('accepts a valid login payload')`
 - `it('rejects login when password is empty')`
 
-`src/lib/auth/register.test.ts` / `login.test.ts` / `logout.test.ts` (or route-handler tests)
+`src/lib/auth/register.test.ts` / `login.test.ts` / `logout.test.ts`
 - `it('registers a user and returns 201 without password_hash')`
 - `it('rejects register when email is already taken')` → 409  
 - `it('logs in with valid email and password and returns safe fields')`  
@@ -324,7 +324,7 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 - `it('does not set cookies or return tokens on login')`  
 - `it('logout returns 200 with ok true')`  
 
-**Deliverables:** Zod schemas, `src/app/api/auth/{register,login,logout}/route.ts`, handler/tests as needed, green Phase 1–3 suites  
+**Deliverables:** Zod schemas, handlers, `src/app/api/auth/{register,login,logout}/route.ts`, green Phase 1–3 suites  
 
 **Depends on:** Phase 2 `COMPLETED` + Phase 3 go-ahead  
 
@@ -393,17 +393,27 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 | `src/lib/services/user-service.ts` | Create / update / delete / findByEmail / findById |
 | `src/lib/services/user-service.test.ts` | Phase 2 UserService Vitest cases (mock D1) |
 
-#### Planned (later phases)
+#### Implemented (Phase 3)
 
 | Path | Purpose |
 |------|---------|
 | `src/lib/auth/schemas.ts` | Zod register/login schemas |
 | `src/lib/auth/schemas.test.ts` | Phase 3 schema Vitest cases |
-| `src/lib/auth/register.ts` / `login.ts` / `logout.ts` | Testable auth handlers (if extracted from routes) |
-| `src/lib/auth/*.test.ts` | Phase 3 register/login/logout behavior tests |
-| `src/app/api/auth/register/route.ts` | Register endpoint |
-| `src/app/api/auth/login/route.ts` | Login endpoint |
-| `src/app/api/auth/logout/route.ts` | Logout endpoint |
+| `src/lib/auth/register.ts` | Register handler (testable) |
+| `src/lib/auth/register.test.ts` | Register behavior tests |
+| `src/lib/auth/login.ts` | Login handler (testable) |
+| `src/lib/auth/login.test.ts` | Login behavior tests |
+| `src/lib/auth/logout.ts` | Logout handler |
+| `src/lib/auth/logout.test.ts` | Logout behavior tests |
+| `src/lib/auth/get-user-service.ts` | Builds `UserService` from Cloudflare `env.DB` |
+| `src/app/api/auth/register/route.ts` | `POST /api/auth/register` |
+| `src/app/api/auth/login/route.ts` | `POST /api/auth/login` |
+| `src/app/api/auth/logout/route.ts` | `POST /api/auth/logout` |
+
+#### Planned (later phases)
+
+| Path | Purpose |
+|------|---------|
 | `src/lib/auth/navigation.ts` | Post-auth redirect / error mapping helpers |
 | `src/lib/auth/navigation.test.ts` | Phase 4 navigation Vitest cases |
 | `src/app/register/page.tsx` | Register UI |
@@ -490,13 +500,29 @@ await this.db
 
 **Ref**: `src/lib/services/user-service.ts:84-110` · **Phase**: 2 · **AC**: UserService create with hashed password; no plaintext
 
-### Implementation Patterns (Phase 3+)
+### Phase 3 code snippets
+
+#### `src/lib/auth/schemas.ts` — Zod register/login
 
 ```typescript
-// Login — validate credentials without tokens/cookies (illustrative; Phase 3)
-const user = await userService.findByEmail(email);
-if (!user || !(await verifyPassword(password, user.passwordHash))) {
-  return Response.json({ error: "Invalid email or password" }, { status: 401 });
+export const registerSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  email: z.string().trim().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+```
+
+**Ref**: `src/lib/auth/schemas.ts:3-14` · **Phase**: 3 · **AC**: Validated register/login payloads
+
+#### `src/lib/auth/login.ts` — credential check without tokens/cookies
+
+```typescript
+if (!valid) {
+  return Response.json(
+    { error: "Invalid email or password" },
+    { status: 401 },
+  );
 }
 return Response.json({
   id: user.id,
@@ -505,6 +531,22 @@ return Response.json({
   email: user.email,
 });
 ```
+
+**Ref**: `src/lib/auth/login.ts:36-48` · **Phase**: 3 · **AC**: Login 200/401; no hash/tokens/cookies
+
+#### `src/app/api/auth/register/route.ts` — thin route
+
+```typescript
+export async function POST(request: Request): Promise<Response> {
+  const body = await request.json().catch(() => null);
+  const userService = await createUserService();
+  return handleRegister(body, userService);
+}
+```
+
+**Ref**: `src/app/api/auth/register/route.ts:4-8` · **Phase**: 3 · **AC**: Register via UserService
+
+### Implementation Patterns (Phase 4+)
 
 ### Important Notes
 
@@ -521,25 +563,25 @@ return Response.json({
 |-------|------------|--------|------------------------|
 | 1 | `migrations/users-schema.test.ts` | ✅ 5/5 green | D1/`users` schema AC; Vitest harness ready |
 | 2 | `password.test.ts`, `user-service.test.ts` | ✅ 12/12 green | Hashing + UserService CRUD AC |
-| 3 | `schemas.test.ts`, register/login/logout handler tests | PLANNED | Register/login/logout API AC |
+| 3 | `schemas.test.ts`, register/login/logout handler tests | ✅ 11/11 green | Register/login/logout API AC |
 | 4 | `navigation.test.ts` (auth UI helpers) | PLANNED | UI redirect AC (+ manual page smoke) |
 
-**Phase 2 Vitest evidence:** `npm test` → `Test Files 3 passed` · `Tests 17 passed` (Phase 1 + 2)
+**Phase 3 Vitest evidence:** `npm test` → `Test Files 7 passed` · `Tests 28 passed` (Phases 1–3)
 
 ---
 
 ## Acceptance Criteria
 
 - [x] D1 is configured with binding `DB` and a local migration creates `users` with `id`, `first_name`, `last_name`, `email` (unique), `password_hash`, and timestamps *(Phase 1 — Vitest green)*
-- [x] Passwords are stored only as hashes; plaintext passwords never appear in DB rows or API success payloads *(Phase 2 — service/password Vitest green; API payloads Phase 3)*
+- [x] Passwords are stored only as hashes; plaintext passwords never appear in DB rows or API success payloads *(Phases 2–3 — Vitest green)*
 - [x] `UserService` can create, update, and delete users; create fails when email already exists *(Phase 2 — Vitest green)*
-- [ ] `POST /api/auth/register` creates a user via `UserService` and returns 201 with safe fields
-- [ ] `POST /api/auth/login` validates email + password via `UserService` and returns 200 with safe fields on success, 401 on failure
-- [ ] `POST /api/auth/logout` returns 200 `{ "ok": true }` without requiring tokens/cookies/sessions
+- [x] `POST /api/auth/register` creates a user via `UserService` and returns 201 with safe fields *(Phase 3 — Vitest green)*
+- [x] `POST /api/auth/login` validates email + password via `UserService` and returns 200 with safe fields on success, 401 on failure *(Phase 3 — Vitest green)*
+- [x] `POST /api/auth/logout` returns 200 `{ "ok": true }` without requiring tokens/cookies/sessions *(Phase 3 — Vitest green)*
 - [ ] Register and Login pages work against the APIs; Login success navigates to blank `/mcq`
 - [ ] Logout UI calls logout endpoint and returns the instructor to `/login`
 - [ ] No token auth, cookies, session store, or MCQ business logic ships in this feature
-- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phases 1–2 done; continues for later phases)*
+- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phases 1–3 done; continues for Phase 4)*
 
 ---
 
@@ -560,7 +602,7 @@ return Response.json({
 - Cloudflare D1 — user persistence (`quizmaker-db`, binding `DB`)
 - Wrangler — migrations and local D1
 - Vitest — unit testing (`npm test`)
-- Zod — request validation (to be added when endpoints/schemas land; confirm before install)
+- Zod — request validation (`zod@4`, `src/lib/auth/schemas.ts`)
 - Password hashing via Web Crypto PBKDF2 (`src/lib/auth/password.ts`) — confirmed in Phase 2
 
 ### Internal Dependencies
@@ -621,7 +663,7 @@ return Response.json({
 ## Current Status
 
 **Last Updated:** 2026-09-02  
-**Current Phase:** Phase 2 — Password helper + UserService  
-**Status:** COMPLETED — committing/pushing Phase 2 on `feature/register-login-logout`  
-**Git:** Stay on `feature/register-login-logout` for all auth phases; never apply D1 migrations `--remote`  
-**Next Steps:** Await explicit go-ahead before starting Phase 3 (auth API endpoints)
+**Current Phase:** Phase 3 — Auth API endpoints  
+**Status:** COMPLETED — committing/pushing Phase 3 on `feature/register-login-logout`  
+**Git:** Stay on `feature/register-login-logout`; never apply D1 migrations `--remote`  
+**Next Steps:** Await explicit go-ahead before starting Phase 4 (UI pages)
