@@ -6,8 +6,8 @@ alwaysApply: false
 
 # Cloudflare D1
 
-D1 is Cloudflare's SQLite database. **This starter has no D1 database configured yet.**
-The conventions below apply once one is added, and describe how to add it.
+D1 is Cloudflare's SQLite database. **This project uses D1 with binding `DB` (`quizmaker-db`).**
+The conventions below apply to ongoing use and to adding further databases if needed.
 
 ## Adding D1 to the project
 
@@ -40,5 +40,6 @@ The conventions below apply once one is added, and describe how to add it.
 - Create with `npx wrangler d1 migrations create <db> <description>`.
 - List with `npx wrangler d1 migrations list <db>`.
 - Apply locally with `npx wrangler d1 migrations apply <db> --local`.
-- **Never apply migrations to the remote database.** Do not run `migrations apply` with
-  `--remote`. Remote schema changes are the user's decision to make and execute.
+- **Never apply migrations to the remote/production database.** Do not run `migrations apply` with
+  `--remote`. Remote/production schema changes are owned by the user only — never create, apply,
+  or push migrations to production from the agent.

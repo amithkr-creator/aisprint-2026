@@ -1,0 +1,37 @@
+---
+description: Test-driven development with Vitest — write failing tests from PRD acceptance criteria before implementing each phase
+alwaysApply: true
+---
+
+# TDD with Vitest
+
+Build every PRD phase with **Test-Driven Development**. Vitest is the unit test framework. Green tests mean the phase's acceptance criteria are met.
+
+## Workflow (mandatory per phase)
+
+1. **Read the PRD** — Identify the current phase's objective, tasks, and related acceptance criteria.
+2. **Write tests first** — For that phase only, add Vitest unit tests that encode the acceptance criteria. Do not implement production code yet.
+3. **Confirm red** — Run `npx vitest run` (or the project's test script). New tests **must fail**. If they pass, the tests are not asserting real behavior — fix the tests.
+4. **Implement minimally** — Write the smallest production code that makes the failing tests pass. No extras beyond the phase scope.
+5. **Confirm green** — Re-run Vitest. All tests for the phase (and prior phases) must pass. Green = acceptance criteria satisfied for that phase.
+6. **Refactor if needed** — Improve structure only while tests stay green. Do not expand scope.
+7. **Update the PRD** — Mark the phase COMPLETED and check off acceptance criteria that the green tests cover. Move to the next phase and repeat from step 2.
+
+## Test design rules
+
+- Map each acceptance criterion to one or more Vitest cases (`describe` / `it` or `test`).
+- Prefer testing pure logic in `src/lib/` (validators, services). Mock D1, auth, and network boundaries.
+- Colocate tests as `*.test.ts` / `*.test.tsx` next to the module, or under a `__tests__/` folder mirroring the source path.
+- Name tests after behavior: `it('rejects register when email is already taken')`, not `it('works')`.
+- Do not delete or weaken a failing test to get green — fix the implementation.
+
+## Anti-patterns (never)
+
+- Implementing feature code before a failing Vitest case exists for that behavior
+- Marking PRD acceptance criteria done while related tests are red or missing
+- Writing tests that only assert mocks or that the function was called, with no outcome check
+- Skipping the red step ("I'll write tests after it works")
+
+## Phase gate
+
+Do not start Phase N+1 until Phase N's Vitest suite is green and the PRD phase status is COMPLETED.

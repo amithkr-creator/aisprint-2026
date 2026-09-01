@@ -1,0 +1,63 @@
+---
+description: Keep the feature PRD as living documentation — record every implemented file, snippet, and decision as work progresses
+alwaysApply: true
+globs: ai-workspace/**/*_PRD.md
+---
+
+# Living PRD Documentation
+
+The feature PRD under `ai-workspace/` is the **source of truth** for what was planned and what was actually built. Update it in the **same turn** as code changes — never defer documentation to “later.”
+
+## When to update (mandatory)
+
+After every meaningful change in a phase (tests added, implementation merged, bug fixed, dependency added):
+
+1. Open the active `*_PRD.md` for the feature.
+2. Record what changed before starting the next task.
+3. Refresh **Current Status** (date, phase, status, next steps).
+
+## What to record
+
+### Implementation Phases
+- Set the active phase to `IN PROGRESS`; when Vitest is green for that phase, set `COMPLETED`.
+- Check off completed **Tasks** and list **Deliverables** with real paths (e.g. `src/lib/auth/register.ts`).
+
+### Technical Implementation Details
+Append under this section as code lands — do not leave placeholder instructions:
+
+- **Key Files** — every new or materially changed file: `` `path` — purpose ``
+- **Tests** — Vitest files and which acceptance criteria they cover
+- **Code snippets** — include the important implemented logic (schemas, handlers, queries, UI flows), not the entire file. Prefer a short fenced block plus `` `path:line` `` reference
+- **Patterns & config** — Zod schemas, Server Actions, D1 SQL, env vars, wrangler bindings
+- **Decisions** — non-obvious choices and why (one or two sentences)
+
+### Acceptance Criteria
+- Mark `[x]` only when the related Vitest tests are green and the behavior exists in code.
+- If criteria split across phases, note which phase completed each item.
+
+### Troubleshooting Guide
+- When a bug is found and fixed, add Problem / Cause / Solution / `filepath:line-number`.
+
+### Dependencies
+- Add new packages, services, tables, or env vars as soon as they are introduced.
+
+## Snippet format
+
+```markdown
+#### `src/lib/example.ts` — short purpose
+\`\`\`typescript
+// essential implementation only
+\`\`\`
+**Ref**: `src/lib/example.ts:12-40` · **Phase**: N · **AC**: related criterion text
+```
+
+## Anti-patterns (never)
+
+- Shipping code without updating Key Files / snippets in the PRD
+- Marking phases or acceptance criteria done without file paths and test evidence
+- Leaving template “Instructions” text in sections that now have real content
+- Documenting plans as if they were implemented
+
+## Gate
+
+Do not start the next PRD phase until the current phase’s implementation, Vitest results, file list, and code snippets are recorded in the PRD and **Current Status** is accurate.
