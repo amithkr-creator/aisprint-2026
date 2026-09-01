@@ -9,6 +9,9 @@ export default defineConfig({
 		environment: "node",
 		include: ["**/*.test.ts"],
 		exclude: ["node_modules", ".next", ".open-next"],
+		typecheck: {
+			tsconfig: "./tsconfig.vitest.json",
+		},
 	},
 	resolve: {
 		alias: {

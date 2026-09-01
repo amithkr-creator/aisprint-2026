@@ -1,0 +1,17 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"types": ["vitest/globals", "node"],
+		"plugins": []
+	},
+	"include": [
+		"next-env.d.ts",
+		"cloudflare-env.d.ts",
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"migrations/**/*.ts",
+		"vitest.config.mts"
+	],
+	"exclude": ["node_modules", ".next", ".open-next"]
+}

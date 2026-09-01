@@ -1,5 +1,5 @@
 Date created: 2026-09-02
-Date last modified: 2026-09-02 (Phase 1 COMPLETED — Vitest + D1 users migration)
+Date last modified: 2026-09-02 (Phase 2 COMPLETED — password helper + UserService)
 
 # Register / Login / Logout - Technical PRD
 
@@ -247,7 +247,7 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 ---
 
-### Phase 2: Password helper + UserService (CRUD) - PLANNED
+### Phase 2: Password helper + UserService (CRUD) - COMPLETED
 
 **Objective:** Domain layer hashes passwords and can create, update, and delete users (with find helpers for login).
 
@@ -259,12 +259,12 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 
 | Step | Action |
 |------|--------|
-| Red | Write password + `UserService` tests (mock D1). Confirm red (modules missing or stubs fail assertions). |
-| Green | Implement `password.ts` then `user-service.ts` until green. |
-| Refactor | Extract types/errors if needed; stay green. |
-| PRD | Snippets + paths; check AC; mark Phase 2 `COMPLETED`. |
+| Red | ✅ Wrote `password.test.ts` + `user-service.test.ts`; suites failed (modules missing). |
+| Green | ✅ Implemented Web Crypto PBKDF2 helper + `UserService` (mock D1 in tests). `17` tests green (Phase 1+2). |
+| Refactor | ✅ Safe/`UserRecord` types + `DuplicateEmailError` / `UserNotFoundError`. |
+| PRD | ✅ Snippets + paths below; Phase 2 marked `COMPLETED`. |
 
-**Planned Vitest cases:**
+**Vitest cases** — all green:
 
 `src/lib/auth/password.test.ts`
 - `it('hashes a password to a value different from plaintext')`
@@ -384,14 +384,19 @@ Password hashing lives in a small helper (e.g. `src/lib/auth/password.ts`) using
 | `wrangler.jsonc` | D1 binding `DB` → `quizmaker-db` (`301024ff-ba33-4c86-9383-ae59c7a91129`) |
 | `cloudflare-env.d.ts` | Regenerated; includes `DB: D1Database` |
 
+#### Implemented (Phase 2)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/auth/password.ts` | Web Crypto PBKDF2 hash/verify (`saltHex:hashHex`) |
+| `src/lib/auth/password.test.ts` | Phase 2 password Vitest cases |
+| `src/lib/services/user-service.ts` | Create / update / delete / findByEmail / findById |
+| `src/lib/services/user-service.test.ts` | Phase 2 UserService Vitest cases (mock D1) |
+
 #### Planned (later phases)
 
 | Path | Purpose |
 |------|---------|
-| `src/lib/auth/password.ts` | Hash and verify passwords |
-| `src/lib/auth/password.test.ts` | Phase 2 password Vitest cases |
-| `src/lib/services/user-service.ts` | Create / update / delete / find users |
-| `src/lib/services/user-service.test.ts` | Phase 2 UserService Vitest cases (mock D1) |
 | `src/lib/auth/schemas.ts` | Zod register/login schemas |
 | `src/lib/auth/schemas.test.ts` | Phase 3 schema Vitest cases |
 | `src/lib/auth/register.ts` / `login.ts` / `logout.ts` | Testable auth handlers (if extracted from routes) |
@@ -455,30 +460,48 @@ function findUsersMigrationSql(): string {
 
 **Ref**: `migrations/users-schema.test.ts:7-15` · **Phase**: 1 · **AC**: Vitest coverage for schema contract
 
-### Implementation Patterns (planned for Phase 2+)
+### Phase 2 code snippets
+
+#### `src/lib/auth/password.ts` — PBKDF2 hash format
 
 ```typescript
-// UserService.create — hash then insert (illustrative; implement in Phase 2)
+/** Returns `saltHex:hashHex` using Web Crypto PBKDF2 (Workers-safe). */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const derived = await deriveKey(password, salt);
+  return `${toHex(salt)}:${toHex(derived)}`;
+}
+```
+
+**Ref**: `src/lib/auth/password.ts:42-48` · **Phase**: 2 · **AC**: Passwords stored only as hashes
+
+#### `src/lib/services/user-service.ts` — create hashes then inserts
+
+```typescript
 const passwordHash = await hashPassword(input.password);
-await db
+await this.db
   .prepare(
-    `INSERT INTO users (id, first_name, last_name, email, password_hash)
-     VALUES (?1, ?2, ?3, ?4, ?5)`
+    `INSERT INTO users (id, first_name, last_name, email, password_hash, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
   )
-  .bind(id, input.firstName, input.lastName, input.email, passwordHash)
+  .bind(id, input.firstName, input.lastName, input.email, passwordHash, now, now)
   .run();
 ```
+
+**Ref**: `src/lib/services/user-service.ts:84-110` · **Phase**: 2 · **AC**: UserService create with hashed password; no plaintext
+
+### Implementation Patterns (Phase 3+)
 
 ```typescript
 // Login — validate credentials without tokens/cookies (illustrative; Phase 3)
 const user = await userService.findByEmail(email);
-if (!user || !(await verifyPassword(password, user.password_hash))) {
+if (!user || !(await verifyPassword(password, user.passwordHash))) {
   return Response.json({ error: "Invalid email or password" }, { status: 401 });
 }
 return Response.json({
   id: user.id,
-  firstName: user.first_name,
-  lastName: user.last_name,
+  firstName: user.firstName,
+  lastName: user.lastName,
   email: user.email,
 });
 ```
@@ -497,26 +520,26 @@ return Response.json({
 | Phase | Test files | Status | AC unlocked when green |
 |-------|------------|--------|------------------------|
 | 1 | `migrations/users-schema.test.ts` | ✅ 5/5 green | D1/`users` schema AC; Vitest harness ready |
-| 2 | `password.test.ts`, `user-service.test.ts` | PLANNED | Hashing + UserService CRUD AC |
+| 2 | `password.test.ts`, `user-service.test.ts` | ✅ 12/12 green | Hashing + UserService CRUD AC |
 | 3 | `schemas.test.ts`, register/login/logout handler tests | PLANNED | Register/login/logout API AC |
 | 4 | `navigation.test.ts` (auth UI helpers) | PLANNED | UI redirect AC (+ manual page smoke) |
 
-**Phase 1 Vitest evidence:** `npm test` → `Test Files 1 passed` · `Tests 5 passed`
+**Phase 2 Vitest evidence:** `npm test` → `Test Files 3 passed` · `Tests 17 passed` (Phase 1 + 2)
 
 ---
 
 ## Acceptance Criteria
 
 - [x] D1 is configured with binding `DB` and a local migration creates `users` with `id`, `first_name`, `last_name`, `email` (unique), `password_hash`, and timestamps *(Phase 1 — Vitest green)*
-- [ ] Passwords are stored only as hashes; plaintext passwords never appear in DB rows or API success payloads
-- [ ] `UserService` can create, update, and delete users; create fails when email already exists
+- [x] Passwords are stored only as hashes; plaintext passwords never appear in DB rows or API success payloads *(Phase 2 — service/password Vitest green; API payloads Phase 3)*
+- [x] `UserService` can create, update, and delete users; create fails when email already exists *(Phase 2 — Vitest green)*
 - [ ] `POST /api/auth/register` creates a user via `UserService` and returns 201 with safe fields
 - [ ] `POST /api/auth/login` validates email + password via `UserService` and returns 200 with safe fields on success, 401 on failure
 - [ ] `POST /api/auth/logout` returns 200 `{ "ok": true }` without requiring tokens/cookies/sessions
 - [ ] Register and Login pages work against the APIs; Login success navigates to blank `/mcq`
 - [ ] Logout UI calls logout endpoint and returns the instructor to `/login`
 - [ ] No token auth, cookies, session store, or MCQ business logic ships in this feature
-- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phase 1 done; continues for later phases)*
+- [x] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria above are only checked when matching tests are green *(Phases 1–2 done; continues for later phases)*
 
 ---
 
@@ -538,7 +561,7 @@ return Response.json({
 - Wrangler — migrations and local D1
 - Vitest — unit testing (`npm test`)
 - Zod — request validation (to be added when endpoints/schemas land; confirm before install)
-- Password hashing via Web Crypto or an approved Workers-compatible library (confirm in Phase 2)
+- Password hashing via Web Crypto PBKDF2 (`src/lib/auth/password.ts`) — confirmed in Phase 2
 
 ### Internal Dependencies
 - Next.js App Router under `src/app/`
@@ -598,7 +621,7 @@ return Response.json({
 ## Current Status
 
 **Last Updated:** 2026-09-02  
-**Current Phase:** Phase 1 — Vitest harness + D1 users migration  
-**Status:** COMPLETED — committing/pushing on feature branch `feature/register-login-logout`  
-**Git:** Reuse `feature/register-login-logout` for all auth phases; do not apply or push D1 migrations to production/remote from the agent (user owns production migration apply)  
-**Next Steps:** Await explicit go-ahead before starting Phase 2 (password + UserService TDD)
+**Current Phase:** Phase 2 — Password helper + UserService  
+**Status:** COMPLETED — committing/pushing Phase 2 on `feature/register-login-logout`  
+**Git:** Stay on `feature/register-login-logout` for all auth phases; never apply D1 migrations `--remote`  
+**Next Steps:** Await explicit go-ahead before starting Phase 3 (auth API endpoints)
