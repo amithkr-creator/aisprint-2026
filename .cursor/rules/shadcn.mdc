@@ -1,53 +1,79 @@
 ---
-description: shadcn/ui component conventions for this project
-globs: src/**/*.tsx
+description: Build all UI with shadcn/ui components and Tailwind CSS
+globs: src/**/*.tsx,src/**/*.jsx,src/**/*.css
 alwaysApply: false
 ---
 
-# shadcn/ui Components
+# shadcn/ui + Tailwind
 
-This project is initialized with shadcn/ui built on **Base UI** (not Radix), using the
-`base-nova` style with Lucide icons. Configuration lives in `components.json`.
+Build every user-facing UI with **shadcn/ui** primitives and **Tailwind CSS** utilities.
+Do not invent custom buttons, inputs, dialogs, menus, tables, or other controls when a
+shadcn component exists.
 
-## Available components
+This project uses shadcn/ui on **Base UI** (not Radix), `base-nova` style, Lucide icons.
+Config is in `components.json`. Tokens live in `src/app/globals.css`.
 
-Already installed in `src/components/ui/`:
+## Use the catalog, not raw HTML
 
-`badge` `button` `card` `dialog` `field` `input` `label` `separator` `table`
+Prefer `@/components/ui/*` over native elements. Typical mappings:
 
-Import them from the `@/components/ui` alias:
+| Need | Use |
+|---|---|
+| Actions, links styled as actions | `Button` / `buttonVariants` |
+| Text fields | `Input` + `Field`, `FieldLabel`, `FieldError` |
+| Surfaces | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` |
+| Modals | `Dialog` |
+| Status | `Badge` |
+| Data grids | `Table` |
+| Dividers | `Separator` |
 
-```tsx
-import { Button } from "@/components/ui/button";
-```
-
-## Adding components
-
-Components are source files copied into this repo, not npm packages. To add one:
+If the needed primitive is missing (Select, Dropdown Menu, Tabs, Sheet, Tooltip,
+Checkbox, Switch, Textarea, Pagination, Alert, Sonner, Sidebar, Breadcrumb, Avatar,
+Command, Popover, Accordion, and the rest of the registry), **add it first**:
 
 ```bash
 npx shadcn@latest add @shadcn/select
 ```
 
-Always include the `@shadcn/` namespace. A bare name such as `add select` silently
-does nothing. If a component produces no files, it does not exist for the Base UI
-base, so check for an equivalent before assuming the command failed.
+Always use the `@shadcn/` namespace. A bare `add select` does nothing. If no files
+appear, that name is not in the Base UI registry — pick the equivalent, do not
+hand-roll a replacement.
 
-## Usage
+Installed files live in `src/components/ui/`. Do not rewrite them unless the user
+asks to change the design system.
 
-- Prefer these components over raw `<button>`, `<input>`, or `<table>` elements.
-- Customize through props and Tailwind classes. Do not rewrite the base files in
-  `src/components/ui/` unless the user asks for a deliberate change to the design system.
-- Compose class names with the `cn()` helper from `@/lib/utils` so Tailwind conflicts
-  resolve correctly.
-- Use the theme tokens defined in `src/app/globals.css`, for example `bg-background`,
-  `text-muted-foreground`, and `border-destructive`. Do not hard-code hex colors.
+## Component capabilities
 
-## Forms
+Use the API the component already exposes. Do not reimplement variants with extra CSS.
 
-There is no `Form` component under Base UI. The form primitive is `field`, which provides
-`FieldSet`, `FieldGroup`, `Field`, `FieldLabel`, `FieldDescription`, and `FieldError`.
+- **Button**: `variant` (`default` `outline` `secondary` `ghost` `destructive` `link`) and
+  `size` (`default` `xs` `sm` `lg` `icon` `icon-xs` `icon-sm` `icon-lg`). For a Next.js
+  `Link` that should look like a button, apply `buttonVariants()`.
+- **Icons**: Lucide (`lucide-react`). Size through the component, not one-off CSS.
+- **Forms**: there is no `Form` primitive on Base UI. Compose `FieldSet`, `FieldGroup`,
+  `Field`, `FieldLabel`, `FieldDescription`, `FieldError`. Server Actions + Zod.
+  `FieldError` takes `{ message }[]`. Do not add `react-hook-form` unless asked.
 
-Build forms as Server Actions validated with Zod, and surface errors through `FieldError`,
-which accepts an array of `{ message }` objects. Do not introduce `react-hook-form`
-without asking the user first.
+```tsx
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+// ❌ BAD — raw control, hardcoded color
+<button className="bg-[#171717] px-3 py-2 text-white">Save</button>
+
+// ✅ GOOD — shadcn + theme tokens
+<Button variant="default" size="sm">Save</Button>
+<Link href="/logout" className={cn(buttonVariants({ variant: "outline" }))}>
+  Log out
+</Link>
+```
+
+## Tailwind is the only styling layer
+
+- Style layout, spacing, and typography with Tailwind utilities on `className`.
+- No CSS modules, styled-components, or extra styling libraries.
+- Merge classes with `cn()` from `@/lib/utils`.
+- Use semantic tokens (`bg-background`, `text-foreground`, `text-muted-foreground`,
+  `border-input`, `bg-primary`, `text-destructive`). Never hard-code hex colors.
+- Tailwind v4 config belongs in `src/app/globals.css` only. Do not add `tailwind.config.*`.
