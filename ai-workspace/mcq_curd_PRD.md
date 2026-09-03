@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 1 COMPLETED — app shell + MCQ routes)
+Date last modified: 2026-09-04 (Phase 2 COMPLETED — local D1 MCQ tables)
 
 # MCQ CRUD - Technical PRD
 
@@ -388,7 +388,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 2: D1 migration for mcqs, choices, attempts - PLANNED
+### Phase 2: D1 migration for mcqs, choices, attempts - COMPLETED
 
 **Objective:** Local D1 schema exists for the three tables with FKs, indexes, and timestamps.
 
@@ -396,7 +396,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - Migration creates `mcqs`, `mcq_choices`, `mcq_attempts` with required columns
 - Cascade delete from `mcqs` to choices and attempts is declared
 
-**Planned Vitest cases** (`migrations/mcq-schema.test.ts`):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `migrations/mcq-schema.test.ts` (5 cases). Confirmed red (`expected a create_mcq_tables migration .sql file`). |
+| Green | ✅ `wrangler d1 migrations create quizmaker-db create_mcq_tables` → `0002_create_mcq_tables.sql`. Applied `--local` only. Suite green (`5` Phase 2). Full run: `Test Files 10 passed` · `Tests 45 passed`. |
+| PRD | ✅ Recorded path/SQL below; Phase 2 marked `COMPLETED`. |
+
+**Vitest cases** (`migrations/mcq-schema.test.ts`) — all green:
 
 - `it('ships an mcq tables migration file')`
 - `it('defines mcqs with id, name, question, created_by, and timestamps')`
@@ -405,12 +413,12 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('cascades deletes from mcqs to choices and attempts')`
 
 **Tasks:**
-1. Write schema contract tests (red)
-2. `wrangler d1 migrations create quizmaker-db create_mcq_tables`
-3. Write SQL; apply `--local` only
-4. Confirm green; record migration path
+1. [x] Write schema contract tests (red)
+2. [x] `wrangler d1 migrations create quizmaker-db create_mcq_tables`
+3. [x] Write SQL; apply `--local` only
+4. [x] Confirm green; record migration path
 
-**Deliverables:** `migrations/0002_*create_mcq_tables.sql`, `migrations/mcq-schema.test.ts`
+**Deliverables:** `migrations/0002_create_mcq_tables.sql`, `migrations/mcq-schema.test.ts`
 
 **Depends on:** Phase 1 `COMPLETED` + Phase 2 go-ahead
 
@@ -654,11 +662,33 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 Removed: `src/app/mcq/page.tsx` (blank “coming soon” placeholder).
 
+#### Implemented (Phase 2)
+
+| Path | Purpose |
+|------|---------|
+| `migrations/0002_create_mcq_tables.sql` | Local D1: `mcqs`, `mcq_choices`, `mcq_attempts` + indexes/FKs |
+| `migrations/mcq-schema.test.ts` | Phase 2 schema contract tests (TDD) |
+
+#### `migrations/0002_create_mcq_tables.sql` — three-table schema
+```sql
+CREATE TABLE mcqs (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  name TEXT NOT NULL,
+  question TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+```
+**Ref**: `migrations/0002_create_mcq_tables.sql:3-42` · **Phase**: 2 · **AC**: `mcqs` / choices / attempts columns, FKs, cascade
+
+Applied locally: `npx wrangler d1 migrations apply quizmaker-db --local` (`0002_create_mcq_tables.sql` ✅). Not applied `--remote`.
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `migrations/0002_*create_mcq_tables.sql` | D1 schema | 2 |
 | `src/lib/mcq/schemas.ts` | Zod | 3 |
 | `src/lib/services/mcq-service.ts` | Question + choice persistence | 4 |
 | `src/lib/services/attempt-service.ts` | Attempt persistence | 5 |
@@ -734,7 +764,7 @@ await this.db
 | Phase | Test files | Status | AC unlocked when green |
 |-------|------------|--------|------------------------|
 | 1 | `src/lib/mcq/navigation.test.ts` | ✅ 6/6 green | App shell routes |
-| 2 | `migrations/mcq-schema.test.ts` | ☐ planned | Three-table schema |
+| 2 | `migrations/mcq-schema.test.ts` | ✅ 5/5 green | Three-table schema |
 | 3 | `src/lib/mcq/schemas.test.ts` | ☐ planned | Zod choice/attempt rules |
 | 4 | `src/lib/services/mcq-service.test.ts` | ☐ planned | McqService CRUD |
 | 5 | `src/lib/services/attempt-service.test.ts` | ☐ planned | AttemptService |
@@ -748,14 +778,14 @@ await this.db
 ## Acceptance Criteria
 
 - [x] After login, `/mcq` is shown inside a shadcn app shell (sidebar + header + logout), not a blank “coming soon” page *(Phase 1 — Vitest green + titled shell)*
-- [ ] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2)*
+- [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
 - [ ] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3–4, 6)*
 - [ ] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4)*
 - [ ] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5)*
 - [ ] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6)*
 - [ ] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7)*
 - [ ] List table shows **name**, **question**, and an actions kebab (vertical ellipses) with Edit, Preview, Delete *(Phase 8)*
-- [ ] `mcqs` columns are `id`, `name`, `question`, `created_by`, `created_at`, `updated_at` — no `course_name` or `short_description` *(Phase 2)*
+- [x] `mcqs` columns are `id`, `name`, `question`, `created_by`, `created_at`, `updated_at` — no `course_name` or `short_description` *(Phase 2 — Vitest green)*
 - [ ] Create button goes to `/mcq/new`; Edit goes to `/mcq/:id/edit`; Preview opens a dialog; Delete confirms then removes the row *(Phases 8–9)*
 - [ ] Create/edit form defaults to two choices, allows up to six, and has Save (persist + return to list) and Cancel (return without save) *(Phase 9)*
 - [ ] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria are only checked when matching tests are green
@@ -859,6 +889,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 1 complete  
-**Status:** COMPLETED — app shell + MCQ routes; Vitest `40 passed`  
-**Next Steps:** Await go-ahead for **Phase 2** (D1 migration for `mcqs`, `mcq_choices`, `mcq_attempts`). Do not start Phase 2 until approved.
+**Current Phase:** Phase 2 complete  
+**Status:** COMPLETED — local D1 MCQ tables; Vitest `45 passed`  
+**Git:** `feature/mcq-crud`  
+**Next Steps:** Await go-ahead for **Phase 3** (Zod schemas for MCQ and attempts). Do not start Phase 3 until approved. Never apply this migration with `--remote`.
