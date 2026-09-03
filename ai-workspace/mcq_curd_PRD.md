@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 5 COMPLETED — AttemptService)
+Date last modified: 2026-09-04 (Phase 6 COMPLETED — MCQ HTTP endpoints)
 
 # MCQ CRUD - Technical PRD
 
@@ -227,6 +227,52 @@ Endpoints live under `src/app/api/`. They call `McqService` / `AttemptService`. 
 - Success (200): `{ "items": [ { "id", "mcqId", "userId", "choiceId", "isCorrect", "createdAt" } ] }`
 - Error (404): MCQ not found
 - Error (500): server/database error
+
+#### PowerShell curl samples
+
+Use `curl.exe` (not the `curl` alias) and `--%` so PowerShell does not rewrite the JSON. Start the app with `npm run dev` first (`http://localhost:3000`).
+
+**List**
+
+```powershell
+curl.exe --% -s -i http://localhost:3000/api/mcqs
+```
+
+**Register a user** (needed for `createdBy` on create). Use a unique email if this one is already taken.
+
+```powershell
+curl.exe --% -s -i -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" --data-raw "{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"email\":\"ada-mcq@school.edu\",\"password\":\"SecretPass1!\"}"
+```
+
+Copy `id` from the 201 body into `CREATED_BY` below.
+
+**Create**
+
+```powershell
+curl.exe --% -s -i -X POST http://localhost:3000/api/mcqs -H "Content-Type: application/json" --data-raw "{\"name\":\"Addition warmup\",\"question\":\"What is 2 + 2?\",\"createdBy\":\"CREATED_BY\",\"choices\":[{\"label\":\"3\",\"isCorrect\":false},{\"label\":\"4\",\"isCorrect\":true}]}"
+```
+
+Copy `id` from the 201 body into `MCQ_ID` below.
+
+**Get by id**
+
+```powershell
+curl.exe --% -s -i http://localhost:3000/api/mcqs/MCQ_ID
+```
+
+**Update**
+
+```powershell
+curl.exe --% -s -i -X PUT http://localhost:3000/api/mcqs/MCQ_ID -H "Content-Type: application/json" --data-raw "{\"name\":\"Addition warmup\",\"question\":\"What is 2 + 3?\",\"choices\":[{\"label\":\"4\",\"isCorrect\":false},{\"label\":\"5\",\"isCorrect\":true}]}"
+```
+
+**Delete**
+
+```powershell
+curl.exe --% -s -i -X DELETE http://localhost:3000/api/mcqs/MCQ_ID
+```
+
+Verified locally on 2026-09-04: list `200`, register `201`, create `201`, get `200` with choices, update `200`, delete `200` `{ "ok": true }`.
 
 ---
 
@@ -542,7 +588,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 6: MCQ HTTP endpoints - PLANNED
+### Phase 6: MCQ HTTP endpoints - COMPLETED
 
 **Objective:** Thin App Router routes call extracted handlers + `McqService` for list/get/create/update/delete.
 
@@ -550,7 +596,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - GET list / GET by id / POST / PUT / DELETE behaviors and status codes above
 - 400 on Zod failure; 404 on missing; no D1 SQL in route files
 
-**Planned Vitest cases** (`src/lib/mcq/handlers.test.ts` or split `create.test.ts` / `update.test.ts` / …):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/mcq/handlers.test.ts` (module missing). Confirmed red (`Cannot find module './handlers'`). |
+| Green | ✅ Implemented handlers + thin routes. Full run: `Test Files 14 passed` · `Tests 79 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 6 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/mcq/handlers.test.ts`) — all green:
 
 - `it('lists MCQs and returns 200 items')`
 - `it('returns 201 without unexpected fields on create')`
@@ -560,13 +614,14 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('returns 200 ok true on delete')`
 - `it('returns 404 when deleting a missing MCQ')`
 - `it('returns 200 with choices on get by id')`
+- `it('returns 400 when the service rejects invalid choices')`
 
 **Tasks:**
-1. Write handler tests (red)
-2. Implement handlers under `src/lib/mcq/` + routes under `src/app/api/mcqs/`
-3. Confirm green
+1. [x] Write handler tests (red)
+2. [x] Implement handlers under `src/lib/mcq/` + routes under `src/app/api/mcqs/`
+3. [x] Confirm green
 
-**Deliverables:** handlers, `src/app/api/mcqs/route.ts`, `src/app/api/mcqs/[id]/route.ts`
+**Deliverables:** `src/lib/mcq/handlers.ts`, `src/lib/mcq/handlers.test.ts`, `src/lib/mcq/get-mcq-service.ts`, `src/app/api/mcqs/route.ts`, `src/app/api/mcqs/[id]/route.ts`
 
 **Depends on:** Phase 4 `COMPLETED` + Phase 6 go-ahead (Phase 5 may run before or after; do not start this phase until Phase 4 is done)
 
@@ -774,12 +829,43 @@ const isCorrect = choice.is_correct === 1;
 ```
 **Ref**: `src/lib/services/attempt-service.ts:48-108` · **Phase**: 5 · **AC**: snapshot is_correct; reject missing MCQ/choice/user
 
+#### Implemented (Phase 6)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/mcq/handlers.ts` | Testable MCQ HTTP handlers (list/get/create/update/delete) |
+| `src/lib/mcq/handlers.test.ts` | Phase 6 handler tests (mocked `McqService`) |
+| `src/lib/mcq/get-mcq-service.ts` | D1-backed `McqService` factory |
+| `src/app/api/mcqs/route.ts` | Thin `GET` / `POST /api/mcqs` |
+| `src/app/api/mcqs/[id]/route.ts` | Thin `GET` / `PUT` / `DELETE /api/mcqs/:id` |
+
+#### `src/lib/mcq/handlers.ts` — status mapping
+```typescript
+const parsed = createMcqSchema.safeParse(body);
+if (!parsed.success) {
+  return validationFailed(parsed.error.flatten());
+}
+const mcq = await mcqService.create(parsed.data);
+return Response.json(mcq, { status: 201 });
+```
+**Ref**: `src/lib/mcq/handlers.ts:36-114` · **Phase**: 6 · **AC**: 400 Zod; 201 create; 404 missing; 200 list/get/update/delete
+
+#### `src/app/api/mcqs/route.ts` — thin route (no SQL)
+```typescript
+export async function POST(request: Request): Promise<Response> {
+  const body = await request.json().catch(() => null);
+  const mcqService = await createMcqService();
+  return handleCreateMcq(body, mcqService);
+}
+```
+**Ref**: `src/app/api/mcqs/route.ts:1-13` · **Phase**: 6 · **AC**: routes stay thin; no D1 SQL
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `src/lib/mcq/*` handlers | Testable HTTP logic | 6–7 |
-| `src/app/api/mcqs/**` | Thin routes | 6–7 |
+| `src/lib/mcq/attempts.ts` | Attempt HTTP handlers | 7 |
+| `src/app/api/mcqs/[id]/attempts/route.ts` | Thin attempts routes | 7 |
 
 #### `src/lib/mcq/navigation.ts` — MCQ route helpers
 ```typescript
@@ -854,7 +940,7 @@ await this.db
 | 3 | `src/lib/mcq/schemas.test.ts` | ✅ 9/9 green | Zod choice/attempt rules |
 | 4 | `src/lib/services/mcq-service.test.ts` | ✅ 10/10 green | McqService CRUD |
 | 5 | `src/lib/services/attempt-service.test.ts` | ✅ 6/6 green | AttemptService |
-| 6 | `src/lib/mcq/` handler tests | ☐ planned | MCQ HTTP API |
+| 6 | `src/lib/mcq/handlers.test.ts` | ✅ 9/9 green | MCQ HTTP API |
 | 7 | `src/lib/mcq/attempts.test.ts` | ☐ planned | Attempts HTTP API |
 | 8 | `src/lib/mcq/list-ui.test.ts` | ☐ planned | Table + kebab actions |
 | 9 | `src/lib/mcq/form-ui.test.ts` | ☐ planned | Create/edit form |
@@ -865,10 +951,10 @@ await this.db
 
 - [x] After login, `/mcq` is shown inside a shadcn app shell (sidebar + header + logout), not a blank “coming soon” page *(Phase 1 — Vitest green + titled shell)*
 - [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
-- [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3 Zod green; service/HTTP still Phases 4 and 6)*
+- [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phases 3–4 + 6 — Zod, service, and HTTP 400 green)*
 - [x] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4 — Vitest green)*
 - [x] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5 — Vitest green)*
-- [ ] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6)*
+- [x] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6 — Vitest green; PowerShell curl verified)*
 - [ ] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7)*
 - [ ] List table shows **name**, **question**, and an actions kebab (vertical ellipses) with Edit, Preview, Delete *(Phase 8)*
 - [x] `mcqs` columns are `id`, `name`, `question`, `created_by`, `created_at`, `updated_at` — no `course_name` or `short_description` *(Phase 2 — Vitest green)*
@@ -973,6 +1059,13 @@ No new npm libraries were required for the sidebar add.
 **Code Reference:** `src/lib/services/attempt-service.test.ts:4-7`  
 **Phase:** 5
 
+### `body` is of type `unknown` (Phase 6 handler tests)
+**Problem:** Editor reported `'body' is of type 'unknown'` when asserting `body.items` and `body.choices` after `response.json()`.  
+**Cause:** `Response.json()` is typed as `Promise<unknown>`, so property access is not allowed without a narrowing cast.  
+**Solution:** Assert the parsed body as `{ items: McqListItem[] }` or `McqRecord` before reading fields.  
+**Code Reference:** `src/lib/mcq/handlers.test.ts:58-60` · `src/lib/mcq/handlers.test.ts:142-144`  
+**Phase:** 6
+
 ---
 
 ## Notes for AI Agents
@@ -996,7 +1089,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 5 complete  
-**Status:** COMPLETED — AttemptService; Vitest `70 passed`  
-**Git:** `feature/mcq-crud` (Phase 4 pushed as `b463b3b`; Phase 5 not committed yet)  
-**Next Steps:** Await go-ahead for **Phase 6** (MCQ HTTP endpoints). Do not start Phase 6 until approved.
+**Current Phase:** Phase 6 complete  
+**Status:** COMPLETED — MCQ HTTP endpoints; Vitest `79 passed`  
+**Git:** `feature/mcq-crud`  
+**Next Steps:** Await go-ahead for **Phase 7** (attempts HTTP endpoints). Do not start Phase 7 until approved.
