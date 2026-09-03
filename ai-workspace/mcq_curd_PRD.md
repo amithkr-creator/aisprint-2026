@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 6 COMPLETED — MCQ HTTP endpoints)
+Date last modified: 2026-09-04 (Phase 7 COMPLETED — attempts HTTP)
 
 # MCQ CRUD - Technical PRD
 
@@ -230,49 +230,57 @@ Endpoints live under `src/app/api/`. They call `McqService` / `AttemptService`. 
 
 #### PowerShell curl samples
 
-Use `curl.exe` (not the `curl` alias) and `--%` so PowerShell does not rewrite the JSON. Start the app with `npm run dev` first (`http://localhost:3000`).
+Use `curl.exe` (not the `curl` alias) and `--%` so PowerShell does not rewrite the JSON. Start the app with `npm run dev` first (`http://localhost:3000`). Run these **in order**. After register, copy `id` → `CREATED_BY`. After create, copy MCQ `id` → `MCQ_ID` and a choice `id` → `CHOICE_ID`. Record the attempt **before** update — update replaces choices, so the old `CHOICE_ID` will 404.
 
-**List**
+**1. Register a user** (use a unique email if this one is already taken)
+
+```powershell
+curl.exe --% -s -i -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" --data-raw "{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"email\":\"ada-verify2@school.edu\",\"password\":\"SecretPass1!\"}"
+```
+
+**2. List MCQs**
 
 ```powershell
 curl.exe --% -s -i http://localhost:3000/api/mcqs
 ```
 
-**Register a user** (needed for `createdBy` on create). Use a unique email if this one is already taken.
-
-```powershell
-curl.exe --% -s -i -X POST http://localhost:3000/api/auth/register -H "Content-Type: application/json" --data-raw "{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"email\":\"ada-mcq@school.edu\",\"password\":\"SecretPass1!\"}"
-```
-
-Copy `id` from the 201 body into `CREATED_BY` below.
-
-**Create**
+**3. Create an MCQ**
 
 ```powershell
 curl.exe --% -s -i -X POST http://localhost:3000/api/mcqs -H "Content-Type: application/json" --data-raw "{\"name\":\"Addition warmup\",\"question\":\"What is 2 + 2?\",\"createdBy\":\"CREATED_BY\",\"choices\":[{\"label\":\"3\",\"isCorrect\":false},{\"label\":\"4\",\"isCorrect\":true}]}"
 ```
 
-Copy `id` from the 201 body into `MCQ_ID` below.
-
-**Get by id**
+**4. Get by id**
 
 ```powershell
 curl.exe --% -s -i http://localhost:3000/api/mcqs/MCQ_ID
 ```
 
-**Update**
+**5. Record an attempt** (use `CHOICE_ID` from create/get, not from a later update)
+
+```powershell
+curl.exe --% -s -i -X POST http://localhost:3000/api/mcqs/MCQ_ID/attempts -H "Content-Type: application/json" --data-raw "{\"userId\":\"CREATED_BY\",\"choiceId\":\"CHOICE_ID\"}"
+```
+
+**6. List attempts**
+
+```powershell
+curl.exe --% -s -i http://localhost:3000/api/mcqs/MCQ_ID/attempts
+```
+
+**7. Update the MCQ** (creates new choice ids)
 
 ```powershell
 curl.exe --% -s -i -X PUT http://localhost:3000/api/mcqs/MCQ_ID -H "Content-Type: application/json" --data-raw "{\"name\":\"Addition warmup\",\"question\":\"What is 2 + 3?\",\"choices\":[{\"label\":\"4\",\"isCorrect\":false},{\"label\":\"5\",\"isCorrect\":true}]}"
 ```
 
-**Delete**
+**8. Delete the MCQ**
 
 ```powershell
 curl.exe --% -s -i -X DELETE http://localhost:3000/api/mcqs/MCQ_ID
 ```
 
-Verified locally on 2026-09-04: list `200`, register `201`, create `201`, get `200` with choices, update `200`, delete `200` `{ "ok": true }`.
+Verified locally on 2026-09-04 with this sequence: register `201`, list `200`, create `201`, get `200` with choices, attempt `201` (`isCorrect: true`), list attempts `200`, update `200`, delete `200` `{ "ok": true }`.
 
 ---
 
@@ -627,7 +635,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 7: Attempts HTTP endpoints - PLANNED
+### Phase 7: Attempts HTTP endpoints - COMPLETED
 
 **Objective:** Record and list attempts for a specific MCQ.
 
@@ -636,7 +644,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `GET /api/mcqs/:id/attempts` → 200 items
 - 404 when MCQ/choice invalid
 
-**Planned Vitest cases** (`src/lib/mcq/attempts.test.ts`):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/mcq/attempts.test.ts` (module missing). Confirmed red (`Cannot find module './attempts'`). |
+| Green | ✅ Implemented handlers + thin route. Full run: `Test Files 16 passed` · `Tests 89 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 7 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/mcq/attempts.test.ts`) — all green:
 
 - `it('records an attempt and returns 201')`
 - `it('returns 400 when attempt payload is invalid')`
@@ -644,17 +660,17 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('lists attempts for an MCQ and returns 200')`
 
 **Tasks:**
-1. Write handler tests (red)
-2. Implement `src/app/api/mcqs/[id]/attempts/route.ts`
-3. Confirm green
+1. [x] Write handler tests (red)
+2. [x] Implement `src/app/api/mcqs/[id]/attempts/route.ts`
+3. [x] Confirm green
 
-**Deliverables:** attempt handlers + route
+**Deliverables:** `src/lib/mcq/attempts.ts`, `src/lib/mcq/attempts.test.ts`, `src/lib/mcq/get-attempt-service.ts`, `src/app/api/mcqs/[id]/attempts/route.ts`
 
 **Depends on:** Phase 5 `COMPLETED` + Phase 6 `COMPLETED` + Phase 7 go-ahead
 
 ---
 
-### Phase 8: List page table + actions menu - PLANNED
+### Phase 8: List page table + actions menu - COMPLETED
 
 **Objective:** `/mcq` shows a shadcn table of MCQs, a Create button, and a top-opening kebab menu (Edit / Preview / Delete).
 
@@ -664,7 +680,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - Kebab opens dropdown with Edit, Preview, Delete
 - Preview dialog and delete confirm are wired
 
-**Planned Vitest cases** (`src/lib/mcq/list-ui.test.ts`):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/mcq/list-ui.test.ts` (module missing). Confirmed red (`Cannot find module './list-ui'`). |
+| Green | ✅ Implemented helpers + list UI. Full run: `Test Files 15 passed` · `Tests 85 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 8 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/mcq/list-ui.test.ts`) — all green:
 
 - `it('defines table columns as name, question, and actions')`
 - `it('sends create to /mcq/new')`
@@ -674,12 +698,12 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('maps delete 404 to a user-visible missing-question message')`
 
 **Tasks:**
-1. Write list-helper tests (red)
-2. Implement helpers + list UI (`Table`, `DropdownMenu`, dialogs)
-3. Fetch `GET /api/mcqs` from the list page
-4. Confirm green; smoke the empty and populated table
+1. [x] Write list-helper tests (red)
+2. [x] Implement helpers + list UI (`Table`, `DropdownMenu`, dialogs)
+3. [x] Fetch `GET /api/mcqs` from the list page
+4. [x] Confirm green; `/mcq` returns 200 (empty and after seeding one row)
 
-**Deliverables:** list helpers, `/mcq` table UI, kebab menu, preview + delete dialogs
+**Deliverables:** `src/lib/mcq/list-ui.ts`, `src/lib/mcq/list-ui.test.ts`, `src/components/mcq/mcq-list.tsx`, `src/app/(app)/mcq/page.tsx`, `src/components/ui/dropdown-menu.tsx`, `src/components/ui/alert-dialog.tsx`
 
 **Depends on:** Phase 1 + Phase 6 `COMPLETED` + Phase 8 go-ahead
 
@@ -860,12 +884,51 @@ export async function POST(request: Request): Promise<Response> {
 ```
 **Ref**: `src/app/api/mcqs/route.ts:1-13` · **Phase**: 6 · **AC**: routes stay thin; no D1 SQL
 
+#### Implemented (Phase 8)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/mcq/list-ui.ts` | List columns, row actions, delete status mapping |
+| `src/lib/mcq/list-ui.test.ts` | Phase 8 helper tests |
+| `src/components/mcq/mcq-list.tsx` | Table + kebab + preview dialog + delete confirm |
+| `src/app/(app)/mcq/page.tsx` | Renders `McqList` |
+| `src/components/ui/dropdown-menu.tsx` | Added via `npx shadcn@latest add @shadcn/dropdown-menu` |
+| `src/components/ui/alert-dialog.tsx` | Added via `npx shadcn@latest add @shadcn/alert-dialog` |
+
+#### `src/lib/mcq/list-ui.ts` — columns, actions, delete mapping
+```typescript
+export const MCQ_LIST_COLUMNS = ["name", "question", "actions"] as const;
+export const MCQ_ROW_ACTIONS = ["edit", "preview", "delete"] as const;
+
+export function mapMcqDeleteResponse(status: number): McqDeleteOutcome {
+  if (status === 200) return { type: "refresh" };
+  if (status === 404) return { type: "error", message: MCQ_DELETE_MISSING_MESSAGE };
+  return { type: "error", message: "Could not delete the question." };
+}
+```
+**Ref**: `src/lib/mcq/list-ui.ts:1-32` · **Phase**: 8 · **AC**: columns; edit/create hrefs; delete 200 refresh / 404 message
+
+#### Implemented (Phase 7)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/mcq/attempts.ts` | Testable attempt HTTP handlers (create/list) |
+| `src/lib/mcq/attempts.test.ts` | Phase 7 handler tests (mocked `AttemptService`) |
+| `src/lib/mcq/get-attempt-service.ts` | D1-backed `AttemptService` factory |
+| `src/app/api/mcqs/[id]/attempts/route.ts` | Thin `GET` / `POST /api/mcqs/:id/attempts` |
+
+#### `src/lib/mcq/attempts.ts` — snapshot + 404 mapping
+```typescript
+const attempt = await attemptService.create(mcqId, parsed.data);
+return Response.json(attempt, { status: 201 });
+```
+**Ref**: `src/lib/mcq/attempts.ts:27-64` · **Phase**: 7 · **AC**: 201 create; 400 Zod; 404 missing MCQ/choice; 200 list
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `src/lib/mcq/attempts.ts` | Attempt HTTP handlers | 7 |
-| `src/app/api/mcqs/[id]/attempts/route.ts` | Thin attempts routes | 7 |
+| `src/lib/mcq/form-ui.ts` | Create/edit form helpers | 9 |
 
 #### `src/lib/mcq/navigation.ts` — MCQ route helpers
 ```typescript
@@ -941,8 +1004,8 @@ await this.db
 | 4 | `src/lib/services/mcq-service.test.ts` | ✅ 10/10 green | McqService CRUD |
 | 5 | `src/lib/services/attempt-service.test.ts` | ✅ 6/6 green | AttemptService |
 | 6 | `src/lib/mcq/handlers.test.ts` | ✅ 9/9 green | MCQ HTTP API |
-| 7 | `src/lib/mcq/attempts.test.ts` | ☐ planned | Attempts HTTP API |
-| 8 | `src/lib/mcq/list-ui.test.ts` | ☐ planned | Table + kebab actions |
+| 7 | `src/lib/mcq/attempts.test.ts` | ✅ 4/4 green | Attempts HTTP API |
+| 8 | `src/lib/mcq/list-ui.test.ts` | ✅ 6/6 green | Table + kebab actions |
 | 9 | `src/lib/mcq/form-ui.test.ts` | ☐ planned | Create/edit form |
 
 ---
@@ -955,10 +1018,10 @@ await this.db
 - [x] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4 — Vitest green)*
 - [x] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5 — Vitest green)*
 - [x] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6 — Vitest green; PowerShell curl verified)*
-- [ ] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7)*
-- [ ] List table shows **name**, **question**, and an actions kebab (vertical ellipses) with Edit, Preview, Delete *(Phase 8)*
+- [x] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7 — Vitest green)*
+- [x] List table shows **name**, **question**, and an actions kebab (vertical ellipses) with Edit, Preview, Delete *(Phase 8 — Vitest green + list UI)*
 - [x] `mcqs` columns are `id`, `name`, `question`, `created_by`, `created_at`, `updated_at` — no `course_name` or `short_description` *(Phase 2 — Vitest green)*
-- [ ] Create button goes to `/mcq/new`; Edit goes to `/mcq/:id/edit`; Preview opens a dialog; Delete confirms then removes the row *(Phases 8–9)*
+- [x] Create button goes to `/mcq/new`; Edit goes to `/mcq/:id/edit`; Preview opens a dialog; Delete confirms then removes the row *(Phase 8 list wiring — Vitest green; create/edit form still Phase 9)*
 - [ ] Create/edit form defaults to two choices, allows up to six, and has Save (persist + return to list) and Cancel (return without save) *(Phase 9)*
 - [ ] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria are only checked when matching tests are green
 
@@ -1089,7 +1152,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 6 complete  
-**Status:** COMPLETED — MCQ HTTP endpoints; Vitest `79 passed`  
+**Current Phase:** Phases 7 and 8 complete  
+**Status:** COMPLETED — attempts HTTP + list table; Vitest `89 passed`. PowerShell curls verified for all MCQ and attempt endpoints.  
 **Git:** `feature/mcq-crud`  
-**Next Steps:** Await go-ahead for **Phase 7** (attempts HTTP endpoints). Do not start Phase 7 until approved.
+**Next Steps:** Await go-ahead for **Phase 9** (create/edit form). Do not start Phase 9 until approved.
