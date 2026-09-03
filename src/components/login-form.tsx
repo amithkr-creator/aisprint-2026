@@ -23,6 +23,7 @@ import {
 	mapLoginErrorMessage,
 	redirectAfterLogin,
 } from "@/lib/auth/navigation";
+import { persistCurrentUserId } from "@/lib/mcq/form-ui";
 
 export function LoginForm({
 	className,
@@ -48,12 +49,17 @@ export function LoginForm({
 				body: JSON.stringify({ email, password }),
 			});
 			const body = (await response.json().catch(() => null)) as {
+				id?: string;
 				error?: string;
 			} | null;
 
 			if (!response.ok) {
 				setError(mapLoginErrorMessage(response.status, body));
 				return;
+			}
+
+			if (body?.id) {
+				persistCurrentUserId(body.id);
 			}
 
 			router.push(redirectAfterLogin());
