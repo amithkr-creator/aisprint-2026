@@ -1,0 +1,34 @@
+---
+description: Record every user-requested agent fix in the active feature PRD
+alwaysApply: true
+---
+
+# Record agent fixes in the PRD
+
+When the user asks the agent to **fix** something (linter/TS errors, failing tests, a bug they found, a broken import), update the active `ai-workspace/*_PRD.md` in the **same turn** as the code fix.
+
+## Where to record
+
+Add an entry under **Troubleshooting Guide** (and mention it in **Current Status** if it blocked a phase):
+
+```markdown
+### Short fix name
+**Problem:** What the user reported
+**Cause:** Why it happened
+**Solution:** What changed
+**Code Reference:** `path:line`
+**Phase:** N (if during a phase)
+```
+
+Also add or update **Key Files** if the fix created or materially changed a file.
+
+## Examples that must be recorded
+
+- “Cannot find module …” / type-declaration errors
+- Test failures the user asked to fix
+- Import or path-alias changes requested after review
+
+## Anti-patterns
+
+- Fixing the code and leaving the PRD unchanged
+- Recording only planned work, not the repair

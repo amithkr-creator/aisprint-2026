@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 4 COMPLETED — McqService CRUD)
+Date last modified: 2026-09-04 (Phase 5 COMPLETED — AttemptService)
 
 # MCQ CRUD - Technical PRD
 
@@ -505,7 +505,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 5: AttemptService - PLANNED
+### Phase 5: AttemptService - COMPLETED
 
 **Objective:** Record a student’s selected choice and whether it was correct; list attempts per MCQ.
 
@@ -514,7 +514,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - Invalid MCQ / choice / user is rejected
 - List returns attempts for that MCQ
 
-**Planned Vitest cases** (`src/lib/services/attempt-service.test.ts`):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/services/attempt-service.test.ts` (module missing). Confirmed red (`Cannot find package '@/lib/services/attempt-service'`). |
+| Green | ✅ Implemented `AttemptService` with mocked D1. Full run: `Test Files 13 passed` · `Tests 70 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 5 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/services/attempt-service.test.ts`) — all green:
 
 - `it('records an attempt and snapshots is_correct from the choice')`
 - `it('records an incorrect attempt when the selected choice is wrong')`
@@ -524,11 +532,11 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('lists attempts for an MCQ newest first')`
 
 **Tasks:**
-1. Write service tests (red)
-2. Implement `src/lib/services/attempt-service.ts`
-3. Confirm green
+1. [x] Write service tests (red)
+2. [x] Implement `src/lib/services/attempt-service.ts`
+3. [x] Confirm green
 
-**Deliverables:** `AttemptService` + colocated tests
+**Deliverables:** `src/lib/services/attempt-service.ts`, `src/lib/services/attempt-service.test.ts`
 
 **Depends on:** Phase 4 `COMPLETED` + Phase 5 go-ahead
 
@@ -749,11 +757,27 @@ await this.db.prepare(`DELETE FROM mcq_choices WHERE mcq_id = ?1`).bind(id).run(
 
 Uses `createMcqSchema` / `updateMcqSchema`. `InvalidChoicesError` on Zod failure; `UserNotFoundError` when `created_by` is missing; `McqNotFoundError` on missing id.
 
+#### Implemented (Phase 5)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/services/attempt-service.ts` | Record and list attempts; snapshot `is_correct` |
+| `src/lib/services/attempt-service.test.ts` | Phase 5 service tests (mock D1) |
+
+#### `src/lib/services/attempt-service.ts` — snapshot correctness
+```typescript
+const choice = await this.findChoiceOnMcq(parsed.data.choiceId, mcqId);
+if (!choice) {
+  throw new ChoiceNotFoundError(parsed.data.choiceId, mcqId);
+}
+const isCorrect = choice.is_correct === 1;
+```
+**Ref**: `src/lib/services/attempt-service.ts:48-108` · **Phase**: 5 · **AC**: snapshot is_correct; reject missing MCQ/choice/user
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `src/lib/services/attempt-service.ts` | Attempt persistence | 5 |
 | `src/lib/mcq/*` handlers | Testable HTTP logic | 6–7 |
 | `src/app/api/mcqs/**` | Thin routes | 6–7 |
 
@@ -829,7 +853,7 @@ await this.db
 | 2 | `migrations/mcq-schema.test.ts` | ✅ 5/5 green | Three-table schema |
 | 3 | `src/lib/mcq/schemas.test.ts` | ✅ 9/9 green | Zod choice/attempt rules |
 | 4 | `src/lib/services/mcq-service.test.ts` | ✅ 10/10 green | McqService CRUD |
-| 5 | `src/lib/services/attempt-service.test.ts` | ☐ planned | AttemptService |
+| 5 | `src/lib/services/attempt-service.test.ts` | ✅ 6/6 green | AttemptService |
 | 6 | `src/lib/mcq/` handler tests | ☐ planned | MCQ HTTP API |
 | 7 | `src/lib/mcq/attempts.test.ts` | ☐ planned | Attempts HTTP API |
 | 8 | `src/lib/mcq/list-ui.test.ts` | ☐ planned | Table + kebab actions |
@@ -843,7 +867,7 @@ await this.db
 - [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
 - [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3 Zod green; service/HTTP still Phases 4 and 6)*
 - [x] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4 — Vitest green)*
-- [ ] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5)*
+- [x] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5 — Vitest green)*
 - [ ] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6)*
 - [ ] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7)*
 - [ ] List table shows **name**, **question**, and an actions kebab (vertical ellipses) with Edit, Preview, Delete *(Phase 8)*
@@ -925,7 +949,29 @@ No new npm libraries were required for the sidebar add.
 **Problem:** `list()` failed in tests with `this.db.prepare(...).all is not a function`.  
 **Cause:** The mock only attached `all()` to the object returned by `bind()`. Real D1 allows `prepare().all()` with no placeholders.  
 **Solution:** Expose `all`/`run` on the prepared statement as well as on the bound statement.  
-**Code Reference:** `src/lib/services/mcq-service.test.ts:18-35`
+**Code Reference:** `src/lib/services/mcq-service.test.ts:18-35`  
+**Phase:** 4
+
+### Cannot find module `@/lib/mcq/schemas` (Phase 3 test)
+**Problem:** Editor reported `Cannot find module '@/lib/mcq/schemas' or its corresponding type declarations` in `schemas.test.ts`.  
+**Cause:** The language service did not resolve the `@/` alias for the newly added colocated test.  
+**Solution:** Import the sibling module with `./schemas`.  
+**Code Reference:** `src/lib/mcq/schemas.test.ts:2`  
+**Phase:** 3
+
+### Cannot find module `./mcq-service` (Phase 4 test)
+**Problem:** Editor reported `Cannot find module './mcq-service' or its corresponding type declarations` in `mcq-service.test.ts`.  
+**Cause:** The language service did not resolve the relative path for the newly added service file.  
+**Solution:** Import through the project alias `@/lib/services/mcq-service` (and `@/lib/services/user-service`).  
+**Code Reference:** `src/lib/services/mcq-service.test.ts:2-7`  
+**Phase:** 4
+
+### Cannot find module `@/lib/services/attempt-service` (Phase 5 test)
+**Problem:** Editor reported `Cannot find module '@/lib/services/attempt-service' or its corresponding type declarations` in `attempt-service.test.ts`.  
+**Cause:** The language service did not resolve the `@/` alias for the newly added colocated test.  
+**Solution:** Import the sibling module with `./attempt-service`.  
+**Code Reference:** `src/lib/services/attempt-service.test.ts:4-7`  
+**Phase:** 5
 
 ---
 
@@ -950,7 +996,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 4 complete  
-**Status:** COMPLETED — McqService CRUD + choices; Vitest `64 passed`  
-**Git:** `feature/mcq-crud`  
-**Next Steps:** Await go-ahead for **Phase 5** (`AttemptService`). Do not start Phase 5 until approved.
+**Current Phase:** Phase 5 complete  
+**Status:** COMPLETED — AttemptService; Vitest `70 passed`  
+**Git:** `feature/mcq-crud` (Phase 4 pushed as `b463b3b`; Phase 5 not committed yet)  
+**Next Steps:** Await go-ahead for **Phase 6** (MCQ HTTP endpoints). Do not start Phase 6 until approved.

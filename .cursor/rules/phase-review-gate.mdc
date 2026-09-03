@@ -1,0 +1,29 @@
+---
+description: After each PRD phase, wait for human review, then ask about commit/push and testing feedback
+alwaysApply: true
+---
+
+# Phase review gate
+
+After a PRD phase is implemented (Vitest green, PRD marked COMPLETED), **stop**. Do not start the next phase. Do not commit or push unless the user already asked in that same message.
+
+## Ask for review
+
+Tell the user the phase is ready and ask them to review the code and tests.
+
+Example: “Phase N is ready. Please review the implementation and tests, then tell me when you are done.”
+
+## After they say they reviewed
+
+Ask both of these before doing more work (unless they already answered):
+
+1. **Commit and push** — “Should I commit and push Phase N to the current feature branch?”
+2. **Testing** — “Have you finished testing? If yes, what was the result or any feedback?”
+
+Do not assume review, testing, or a commit request from silence.
+
+## Anti-patterns
+
+- Committing or pushing a phase unprompted
+- Starting Phase N+1 because tests are green
+- Skipping the testing-feedback question after a review
