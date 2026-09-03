@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 3 COMPLETED — Zod MCQ and attempt schemas)
+Date last modified: 2026-09-04 (Phase 4 COMPLETED — McqService CRUD)
 
 # MCQ CRUD - Technical PRD
 
@@ -463,7 +463,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 4: McqService (CRUD + choices) - PLANNED
+### Phase 4: McqService (CRUD + choices) - COMPLETED
 
 **Objective:** Domain layer can list, read, create, update, and delete MCQs and persist 2–6 choices.
 
@@ -473,7 +473,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - Delete / missing id fail clearly
 - List does not embed choices
 
-**Planned Vitest cases** (`src/lib/services/mcq-service.test.ts`) — mock D1:
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/services/mcq-service.test.ts` (module missing). Confirmed red (`Cannot find module './mcq-service'`). |
+| Green | ✅ Implemented `McqService` with mocked D1. Full run: `Test Files 12 passed` · `Tests 64 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 4 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/services/mcq-service.test.ts`) — all green:
 
 - `it('creates an MCQ with name, question, createdBy, and returns choices')`
 - `it('fails create when createdBy user does not exist')`
@@ -487,11 +495,11 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('fails delete when MCQ id does not exist')`
 
 **Tasks:**
-1. Write service tests (red)
-2. Implement `src/lib/services/mcq-service.ts`
-3. Confirm green
+1. [x] Write service tests (red)
+2. [x] Implement `src/lib/services/mcq-service.ts`
+3. [x] Confirm green
 
-**Deliverables:** `McqService` + colocated tests
+**Deliverables:** `src/lib/services/mcq-service.ts`, `src/lib/services/mcq-service.test.ts`
 
 **Depends on:** Phase 3 `COMPLETED` + Phase 4 go-ahead
 
@@ -718,11 +726,33 @@ export const attemptSchema = z.object({
 
 `updateMcqSchema` is the same as create without `createdBy`.
 
+#### Implemented (Phase 4)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/services/mcq-service.ts` | MCQ + choice persistence (list/get/create/update/delete) |
+| `src/lib/services/mcq-service.test.ts` | Phase 4 service tests (mock D1) |
+
+#### `src/lib/services/mcq-service.ts` — create + replace-on-update
+```typescript
+await this.db
+  .prepare(
+    `INSERT INTO mcqs (id, name, question, created_by, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+  )
+  .bind(id, parsed.data.name, parsed.data.question, parsed.data.createdBy, now, now)
+  .run();
+
+await this.db.prepare(`DELETE FROM mcq_choices WHERE mcq_id = ?1`).bind(id).run();
+```
+**Ref**: `src/lib/services/mcq-service.ts:88-210` · **Phase**: 4 · **AC**: McqService CRUD; update replaces choices
+
+Uses `createMcqSchema` / `updateMcqSchema`. `InvalidChoicesError` on Zod failure; `UserNotFoundError` when `created_by` is missing; `McqNotFoundError` on missing id.
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `src/lib/services/mcq-service.ts` | Question + choice persistence | 4 |
 | `src/lib/services/attempt-service.ts` | Attempt persistence | 5 |
 | `src/lib/mcq/*` handlers | Testable HTTP logic | 6–7 |
 | `src/app/api/mcqs/**` | Thin routes | 6–7 |
@@ -798,7 +828,7 @@ await this.db
 | 1 | `src/lib/mcq/navigation.test.ts` | ✅ 6/6 green | App shell routes |
 | 2 | `migrations/mcq-schema.test.ts` | ✅ 5/5 green | Three-table schema |
 | 3 | `src/lib/mcq/schemas.test.ts` | ✅ 9/9 green | Zod choice/attempt rules |
-| 4 | `src/lib/services/mcq-service.test.ts` | ☐ planned | McqService CRUD |
+| 4 | `src/lib/services/mcq-service.test.ts` | ✅ 10/10 green | McqService CRUD |
 | 5 | `src/lib/services/attempt-service.test.ts` | ☐ planned | AttemptService |
 | 6 | `src/lib/mcq/` handler tests | ☐ planned | MCQ HTTP API |
 | 7 | `src/lib/mcq/attempts.test.ts` | ☐ planned | Attempts HTTP API |
@@ -812,7 +842,7 @@ await this.db
 - [x] After login, `/mcq` is shown inside a shadcn app shell (sidebar + header + logout), not a blank “coming soon” page *(Phase 1 — Vitest green + titled shell)*
 - [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
 - [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3 Zod green; service/HTTP still Phases 4 and 6)*
-- [ ] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4)*
+- [x] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4 — Vitest green)*
 - [ ] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5)*
 - [ ] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6)*
 - [ ] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7)*
@@ -891,12 +921,11 @@ No new npm libraries were required for the sidebar add.
 
 *Add entries as bugs are found and fixed during implementation.*
 
-### (Template reserved)
-
-**Problem:** —  
-**Cause:** —  
-**Solution:** —  
-**Code Reference:** —
+### D1 mock `all()` without `bind()`
+**Problem:** `list()` failed in tests with `this.db.prepare(...).all is not a function`.  
+**Cause:** The mock only attached `all()` to the object returned by `bind()`. Real D1 allows `prepare().all()` with no placeholders.  
+**Solution:** Expose `all`/`run` on the prepared statement as well as on the bound statement.  
+**Code Reference:** `src/lib/services/mcq-service.test.ts:18-35`
 
 ---
 
@@ -921,7 +950,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 3 complete  
-**Status:** COMPLETED — Zod create/update/attempt schemas; Vitest `54 passed`  
+**Current Phase:** Phase 4 complete  
+**Status:** COMPLETED — McqService CRUD + choices; Vitest `64 passed`  
 **Git:** `feature/mcq-crud`  
-**Next Steps:** Await go-ahead for **Phase 4** (`McqService` CRUD + choices). Do not start Phase 4 until approved.
+**Next Steps:** Await go-ahead for **Phase 5** (`AttemptService`). Do not start Phase 5 until approved.
