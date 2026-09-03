@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-04 (Phase 2 COMPLETED — local D1 MCQ tables)
+Date last modified: 2026-09-04 (Phase 3 COMPLETED — Zod MCQ and attempt schemas)
 
 # MCQ CRUD - Technical PRD
 
@@ -424,7 +424,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ---
 
-### Phase 3: Zod schemas for MCQ and attempts - PLANNED
+### Phase 3: Zod schemas for MCQ and attempts - COMPLETED
 
 **Objective:** Shared validation rules for create/update payloads and attempt payloads.
 
@@ -432,7 +432,15 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - 2–6 choices; exactly one correct; required `name` + `question` + `createdBy` on create
 - Attempt requires `userId` + `choiceId`
 
-**Planned Vitest cases** (`src/lib/mcq/schemas.test.ts`):
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `src/lib/mcq/schemas.test.ts` (module missing). Confirmed red (`Cannot find package '@/lib/mcq/schemas'`). |
+| Green | ✅ Implemented `createMcqSchema`, `updateMcqSchema`, `attemptSchema`. Full run: `Test Files 11 passed` · `Tests 54 passed`. |
+| PRD | ✅ Recorded paths/snippets below; Phase 3 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/mcq/schemas.test.ts`) — all green:
 
 - `it('accepts a valid MCQ payload with two choices and one correct')`
 - `it('rejects MCQ when name or question is empty')`
@@ -445,11 +453,11 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('rejects attempt when userId or choiceId is missing')`
 
 **Tasks:**
-1. Write schema tests (red)
-2. Implement `src/lib/mcq/schemas.ts`
-3. Confirm green
+1. [x] Write schema tests (red)
+2. [x] Implement `src/lib/mcq/schemas.ts`
+3. [x] Confirm green
 
-**Deliverables:** `src/lib/mcq/schemas.ts` + test
+**Deliverables:** `src/lib/mcq/schemas.ts`, `src/lib/mcq/schemas.test.ts`
 
 **Depends on:** Phase 2 `COMPLETED` + Phase 3 go-ahead
 
@@ -685,11 +693,35 @@ CREATE TABLE mcqs (
 
 Applied locally: `npx wrangler d1 migrations apply quizmaker-db --local` (`0002_create_mcq_tables.sql` ✅). Not applied `--remote`.
 
+#### Implemented (Phase 3)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/mcq/schemas.ts` | Zod create/update/attempt validation |
+| `src/lib/mcq/schemas.test.ts` | Phase 3 validation contract tests (TDD) |
+
+#### `src/lib/mcq/schemas.ts` — create + attempt rules
+```typescript
+export const createMcqSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  question: z.string().trim().min(1, "Question is required"),
+  createdBy: z.string().trim().min(1, "createdBy is required"),
+  choices: choicesSchema, // 2–6 items, exactly one isCorrect
+});
+
+export const attemptSchema = z.object({
+  userId: z.string().trim().min(1, "userId is required"),
+  choiceId: z.string().trim().min(1, "choiceId is required"),
+});
+```
+**Ref**: `src/lib/mcq/schemas.ts:1-38` · **Phase**: 3 · **AC**: choice count, one correct, required name/question/createdBy, attempt ids
+
+`updateMcqSchema` is the same as create without `createdBy`.
+
 #### Planned (later phases)
 
 | Path | Purpose | Phase |
 |------|---------|-------|
-| `src/lib/mcq/schemas.ts` | Zod | 3 |
 | `src/lib/services/mcq-service.ts` | Question + choice persistence | 4 |
 | `src/lib/services/attempt-service.ts` | Attempt persistence | 5 |
 | `src/lib/mcq/*` handlers | Testable HTTP logic | 6–7 |
@@ -765,7 +797,7 @@ await this.db
 |-------|------------|--------|------------------------|
 | 1 | `src/lib/mcq/navigation.test.ts` | ✅ 6/6 green | App shell routes |
 | 2 | `migrations/mcq-schema.test.ts` | ✅ 5/5 green | Three-table schema |
-| 3 | `src/lib/mcq/schemas.test.ts` | ☐ planned | Zod choice/attempt rules |
+| 3 | `src/lib/mcq/schemas.test.ts` | ✅ 9/9 green | Zod choice/attempt rules |
 | 4 | `src/lib/services/mcq-service.test.ts` | ☐ planned | McqService CRUD |
 | 5 | `src/lib/services/attempt-service.test.ts` | ☐ planned | AttemptService |
 | 6 | `src/lib/mcq/` handler tests | ☐ planned | MCQ HTTP API |
@@ -779,7 +811,7 @@ await this.db
 
 - [x] After login, `/mcq` is shown inside a shadcn app shell (sidebar + header + logout), not a blank “coming soon” page *(Phase 1 — Vitest green + titled shell)*
 - [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
-- [ ] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3–4, 6)*
+- [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phase 3 Zod green; service/HTTP still Phases 4 and 6)*
 - [ ] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4)*
 - [ ] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5)*
 - [ ] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6)*
@@ -889,7 +921,7 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-04  
-**Current Phase:** Phase 2 complete  
-**Status:** COMPLETED — local D1 MCQ tables; Vitest `45 passed`  
+**Current Phase:** Phase 3 complete  
+**Status:** COMPLETED — Zod create/update/attempt schemas; Vitest `54 passed`  
 **Git:** `feature/mcq-crud`  
-**Next Steps:** Await go-ahead for **Phase 3** (Zod schemas for MCQ and attempts). Do not start Phase 3 until approved. Never apply this migration with `--remote`.
+**Next Steps:** Await go-ahead for **Phase 4** (`McqService` CRUD + choices). Do not start Phase 4 until approved.
