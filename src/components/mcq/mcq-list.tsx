@@ -14,15 +14,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -43,8 +35,10 @@ import {
 	mcqCreateHref,
 	mcqEditHref,
 } from "@/lib/mcq/list-ui";
+import { toPreviewChoices, type PreviewChoice } from "@/lib/mcq/preview-ui";
 import type { McqListItem, McqRecord } from "@/lib/services/mcq-service";
 import { cn } from "@/lib/utils";
+import { McqPreviewDialog } from "@/components/mcq/mcq-preview-dialog";
 
 function columnLabel(column: (typeof MCQ_LIST_COLUMNS)[number]): string {
 	return column.charAt(0).toUpperCase() + column.slice(1);
@@ -54,7 +48,12 @@ export function McqList() {
 	const router = useRouter();
 	const [items, setItems] = useState<McqListItem[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [preview, setPreview] = useState<McqRecord | null>(null);
+	const [preview, setPreview] = useState<{
+		id: string;
+		name: string;
+		question: string;
+		choices: PreviewChoice[];
+	} | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<McqListItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
 
@@ -80,7 +79,13 @@ export function McqList() {
 			setError("That question is no longer available.");
 			return;
 		}
-		setPreview((await response.json()) as McqRecord);
+		const record = (await response.json()) as McqRecord;
+		setPreview({
+			id: record.id,
+			name: record.name,
+			question: record.question,
+			choices: toPreviewChoices(record.choices),
+		});
 	}
 
 	async function confirmDelete() {
@@ -193,32 +198,18 @@ export function McqList() {
 				</Table>
 			)}
 
-			<Dialog
+			<McqPreviewDialog
 				open={preview !== null}
+				mcqId={preview?.id ?? ""}
+				name={preview?.name ?? ""}
+				question={preview?.question ?? ""}
+				choices={preview?.choices ?? []}
 				onOpenChange={(open) => {
 					if (!open) {
 						setPreview(null);
 					}
 				}}
-			>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>{preview?.name}</DialogTitle>
-						<DialogDescription>{preview?.question}</DialogDescription>
-					</DialogHeader>
-					<ul className="space-y-2">
-						{preview?.choices.map((choice) => (
-							<li
-								key={choice.id}
-								className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
-							>
-								<span>{choice.label}</span>
-								{choice.isCorrect ? <Badge>Correct</Badge> : null}
-							</li>
-						))}
-					</ul>
-				</DialogContent>
-			</Dialog>
+			/>
 
 			<AlertDialog
 				open={deleteTarget !== null}
