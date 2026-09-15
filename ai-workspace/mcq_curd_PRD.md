@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-15 (Phase 10 COMPLETED — preview attempt bug fix)
+Date last modified: 2026-09-15 (Phase 10 review — hide preview attempt count)
 
 # MCQ CRUD - Technical PRD
 
@@ -755,21 +755,21 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 
 ### Phase 10: Preview attempt bug fix - COMPLETED
 
-**Objective:** Preview is a take-the-question flow, not an answer key. Submit compares against D1 and records attempt count until the first correct answer.
+**Objective:** Preview is a take-the-question flow, not an answer key. Submit compares against D1 and records attempts until the first correct answer. The attempt count is persisted, not shown on the preview dialog.
 
 **Acceptance criteria mapped:**
 - Preview does not reveal the correct choice before submit
 - User must select a choice and click Submit
 - Server snapshot decides correct vs incorrect
 - Correct → “Well done, good work.”; incorrect → “Incorrect. Please try again.”
-- Attempt count is recorded and shown until the first correct answer
+- Attempt count is recorded until the first correct answer and is not shown on the preview dialog
 
 **TDD cycle:**
 
 | Step | Action |
 |------|--------|
 | Red | ✅ Wrote `src/lib/mcq/preview-ui.test.ts` (module missing). Confirmed red (`Cannot find module './preview-ui'`). |
-| Green | ✅ Implemented helpers + submit dialog. Full run: `Test Files 18 passed` · `Tests 106 passed`. |
+| Green | ✅ Implemented helpers + submit dialog. Full run: `Test Files 18 passed` · `Tests 107 passed`. |
 | PRD | ✅ Recorded paths/snippets below; Phase 10 marked `COMPLETED`. |
 
 **Vitest cases** (`src/lib/mcq/preview-ui.test.ts`) — all green:
@@ -779,6 +779,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 - `it('maps a correct attempt to the well-done message')`
 - `it('maps an incorrect attempt to the try-again message')`
 - `it('counts attempts until the first correct answer')`
+- `it('does not display the attempt count on the preview dialog')`
 - `it('builds an attempt payload with userId and choiceId')`
 
 **Tasks:**
@@ -1006,7 +1007,7 @@ export function addMcqChoice(form: McqFormState): McqFormState {
 
 | Path | Purpose |
 |------|---------|
-| `src/lib/mcq/preview-ui.ts` | Hide correctness, submit rules, result messages, attempt count |
+| `src/lib/mcq/preview-ui.ts` | Hide correctness, submit rules, result messages; record attempts, hide count |
 | `src/lib/mcq/preview-ui.test.ts` | Phase 10 helper tests |
 | `src/components/mcq/mcq-preview-dialog.tsx` | Select → Submit → compare via attempts API |
 | `src/components/mcq/mcq-list.tsx` | Opens preview without rendering `isCorrect` |
@@ -1020,8 +1021,11 @@ export function countAttemptsUntilCorrect(results: boolean[]): number {
   const firstCorrect = results.findIndex((isCorrect) => isCorrect);
   return firstCorrect === -1 ? results.length : firstCorrect + 1;
 }
+export function shouldDisplayPreviewAttemptCount(): boolean {
+  return false;
+}
 ```
-**Ref**: `src/lib/mcq/preview-ui.ts:13-36` · **Phase**: 10 · **AC**: no pre-submit answer key; attempt count; well-done / try-again
+**Ref**: `src/lib/mcq/preview-ui.ts:13-40` · **Phase**: 10 · **AC**: no pre-submit answer key; record attempts; hide count; well-done / try-again
 
 #### Planned (later phases)
 
@@ -1106,7 +1110,7 @@ await this.db
 | 7 | `src/lib/mcq/attempts.test.ts` | ✅ 4/4 green | Attempts HTTP API |
 | 8 | `src/lib/mcq/list-ui.test.ts` | ✅ 6/6 green | Table + kebab actions |
 | 9 | `src/lib/mcq/form-ui.test.ts` | ✅ 11/11 green | Create/edit form |
-| 10 | `src/lib/mcq/preview-ui.test.ts` | ✅ 6/6 green | Preview submit + attempt count |
+| 10 | `src/lib/mcq/preview-ui.test.ts` | ✅ 7/7 green | Preview submit; record attempts, hide count |
 
 ---
 
@@ -1123,7 +1127,7 @@ await this.db
 - [x] `mcqs` columns are `id`, `name`, `question`, `created_by`, `created_at`, `updated_at` — no `course_name` or `short_description` *(Phase 2 — Vitest green)*
 - [x] Create button goes to `/mcq/new`; Edit goes to `/mcq/:id/edit`; Preview opens a dialog; Delete confirms then removes the row *(Phases 8–9 — Vitest green)*
 - [x] Create/edit form defaults to two choices, allows up to six, and has Save (persist + return to list) and Cancel (return without save) *(Phase 9 — Vitest green)*
-- [x] Preview does not reveal the correct choice; the user selects an option, submits, and sees well-done or try-again from the database snapshot; attempt count is recorded until the first correct answer *(Phase 10 — Vitest green)*
+- [x] Preview does not reveal the correct choice; the user selects an option, submits, and sees well-done or try-again from the database snapshot; attempts are recorded until the first correct answer and the count is not shown on preview *(Phase 10 — Vitest green)*
 - [ ] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria are only checked when matching tests are green
 
 ---
@@ -1247,8 +1251,15 @@ No new npm libraries were required for the sidebar add.
 ### Preview showed the correct answer immediately
 **Problem:** After login, Preview marked the correct choice before the user selected anything. Attempt count was not shown or recorded from the dialog.  
 **Cause:** Phase 8 preview rendered `isCorrect` as a Badge and had no Submit path.  
-**Solution:** Strip `isCorrect` from the preview view-model. User selects a choice, Submit posts `POST /api/mcqs/:id/attempts`, and the dialog shows “Well done, good work.” or “Incorrect. Please try again.” plus the attempt count until the first correct answer.  
-**Code Reference:** `src/lib/mcq/preview-ui.ts:13-36` · `src/components/mcq/mcq-preview-dialog.tsx`  
+**Solution:** Strip `isCorrect` from the preview view-model. User selects a choice, Submit posts `POST /api/mcqs/:id/attempts`, and the dialog shows “Well done, good work.” or “Incorrect. Please try again.” Attempts are recorded until the first correct answer; the count is not shown on the preview dialog.  
+**Code Reference:** `src/lib/mcq/preview-ui.ts:13-40` · `src/components/mcq/mcq-preview-dialog.tsx`  
+**Phase:** 10
+
+### Preview showed the attempt count
+**Problem:** Preview displayed `Attempts: N` while the instructor was answering.  
+**Cause:** Phase 10 rendered `countAttemptsUntilCorrect` in the dialog.  
+**Solution:** Keep posting each submit to `POST /api/mcqs/:id/attempts`. `shouldDisplayPreviewAttemptCount()` is false, so the preview dialog does not show the count.  
+**Code Reference:** `src/lib/mcq/preview-ui.ts:38-40` · `src/components/mcq/mcq-preview-dialog.tsx`  
 **Phase:** 10
 
 ---
@@ -1275,6 +1286,6 @@ No new npm libraries were required for the sidebar add.
 
 **Last Updated:** 2026-09-15  
 **Current Phase:** Phase 10 complete  
-**Status:** COMPLETED — preview submit + attempt count; Vitest `106 passed`  
+**Status:** COMPLETED — preview records attempts and hides the count  
 **Git:** `feature/mcq-crud`  
-**Next Steps:** Await review of Phase 10. Do not commit unless asked.
+**Next Steps:** Await review of the Phase 10 preview-count hide. Do not commit unless asked.

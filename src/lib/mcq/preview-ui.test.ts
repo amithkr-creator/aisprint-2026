@@ -6,6 +6,7 @@ import {
 	countAttemptsUntilCorrect,
 	isPreviewSubmitValid,
 	mapPreviewResultMessage,
+	shouldDisplayPreviewAttemptCount,
 	toPreviewChoices,
 } from "./preview-ui";
 
@@ -42,6 +43,10 @@ describe("MCQ preview UI helpers", () => {
 		expect(countAttemptsUntilCorrect([false, false, true])).toBe(3);
 		expect(countAttemptsUntilCorrect([true])).toBe(1);
 		expect(countAttemptsUntilCorrect([false, false])).toBe(2);
+	});
+
+	it("does not display the attempt count on the preview dialog", () => {
+		expect(shouldDisplayPreviewAttemptCount()).toBe(false);
 	});
 
 	it("builds an attempt payload with userId and choiceId", () => {

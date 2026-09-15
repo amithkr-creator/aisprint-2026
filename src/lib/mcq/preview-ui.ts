@@ -31,6 +31,10 @@ export function countAttemptsUntilCorrect(results: boolean[]): number {
 	return firstCorrect + 1;
 }
 
+export function shouldDisplayPreviewAttemptCount(): boolean {
+	return false;
+}
+
 export function buildPreviewAttemptPayload(userId: string, choiceId: string) {
 	return { userId, choiceId };
 }

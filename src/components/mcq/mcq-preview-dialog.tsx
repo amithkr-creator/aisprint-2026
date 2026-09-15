@@ -14,9 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { readCurrentUserId } from "@/lib/mcq/form-ui";
 import {
 	buildPreviewAttemptPayload,
-	countAttemptsUntilCorrect,
 	isPreviewSubmitValid,
 	mapPreviewResultMessage,
+	shouldDisplayPreviewAttemptCount,
 	type PreviewChoice,
 } from "@/lib/mcq/preview-ui";
 
@@ -44,7 +44,6 @@ export function McqPreviewDialog({
 	const [pending, setPending] = useState(false);
 
 	const solved = results.some((isCorrect) => isCorrect);
-	const attemptCount = countAttemptsUntilCorrect(results);
 
 	function resetState() {
 		setSelectedChoiceId(null);
@@ -129,9 +128,9 @@ export function McqPreviewDialog({
 					))}
 				</RadioGroup>
 
-				<p className="text-sm text-muted-foreground">
-					Attempts: {attemptCount}
-				</p>
+				{shouldDisplayPreviewAttemptCount() ? (
+					<p className="text-sm text-muted-foreground">Attempts</p>
+				) : null}
 
 				{message ? (
 					<p
