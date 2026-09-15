@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-15 (Phase 11 COMPLETED — edit after preview attempts)
+Date last modified: 2026-09-15 (Phase 11 shipped — edit after preview; production deploy)
 
 # MCQ CRUD - Technical PRD
 
@@ -819,6 +819,7 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 1. [x] Write failing update-order test (red)
 2. [x] Delete attempts before replacing choices
 3. [x] Confirm green
+4. [x] Commit / push / deploy Phase 11
 
 **Deliverables:** `src/lib/services/mcq-service.ts`, `src/lib/services/mcq-service.test.ts`
 
@@ -1329,11 +1330,11 @@ No new npm libraries were required for the sidebar add.
 **Last Updated:** 2026-09-15  
 **Current Phase:** Phase 11 complete  
 **Status:** COMPLETED — edit after preview attempts; Vitest `18` files / `108` tests.  
-**Git:** `feature/mcq-crud` @ `de011d2` (Phase 11 not committed yet)  
+**Git:** `feature/mcq-crud` @ `a0303bf` (pushed to `origin/feature/mcq-crud`)  
 **Production:** https://aisprints-2026.aisprint.workers.dev  
-**Worker version:** `6b30bb67-38b2-4b5f-905c-98e5a5583d7d`  
+**Worker version:** `b8948acf-6a5f-49a3-b78d-a1ce493ef7a8`  
 **Remote D1:** `quizmaker-db` — no pending migrations  
-**Next Steps:** Await review of Phase 11. Do not commit unless asked.
+**Next Steps:** No further implementation phases are planned. Do not start new work without go-ahead.
 
 ### Git commits (this feature)
 
@@ -1349,10 +1350,12 @@ No new npm libraries were required for the sidebar add.
 | `495d4b2` | Add Phase 9 create/edit form and keep logout in the sidebar. |
 | `3fa97b3` | Add Phase 10 preview submit flow and attempt count. |
 | `de011d2` | Hide preview attempt count while still recording submits. |
+| `a0303bf` | Allow MCQ edit after preview by clearing attempts first. |
 
 ### Production deploys
 
 | When | Worker version | Notes |
 |------|----------------|-------|
 | 2026-09-15 | `70301bf9-5fb0-444f-9652-f7babe6554eb` | Phase 10 preview submit (`3fa97b3`) |
-| 2026-09-15 | `6b30bb67-38b2-4b5f-905c-98e5a5583d7d` | Hide preview attempt count (`de011d2`) — current |
+| 2026-09-15 | `6b30bb67-38b2-4b5f-905c-98e5a5583d7d` | Hide preview attempt count (`de011d2`) |
+| 2026-09-15 | `b8948acf-6a5f-49a3-b78d-a1ce493ef7a8` | Edit after preview attempts (`a0303bf`) — current |
