@@ -1,5 +1,5 @@
 Date created: 2026-09-04
-Date last modified: 2026-09-15 (Phase 10 review — hide preview attempt count)
+Date last modified: 2026-09-15 (Phase 11 COMPLETED — edit after preview attempts)
 
 # MCQ CRUD - Technical PRD
 
@@ -230,7 +230,7 @@ Endpoints live under `src/app/api/`. They call `McqService` / `AttemptService`. 
 
 #### PowerShell curl samples
 
-Use `curl.exe` (not the `curl` alias) and `--%` so PowerShell does not rewrite the JSON. Start the app with `npm run dev` first (`http://localhost:3000`). Run these **in order**. After register, copy `id` → `CREATED_BY`. After create, copy MCQ `id` → `MCQ_ID` and a choice `id` → `CHOICE_ID`. Record the attempt **before** update — update replaces choices, so the old `CHOICE_ID` will 404.
+Use `curl.exe` (not the `curl` alias) and `--%` so PowerShell does not rewrite the JSON. Start the app with `npm run dev` first (`http://localhost:3000`). Run these **in order**. After register, copy `id` → `CREATED_BY`. After create, copy MCQ `id` → `MCQ_ID` and a choice `id` → `CHOICE_ID`. Record the attempt **before** update — update clears that MCQ’s attempts, then replaces choices, so the old `CHOICE_ID` will 404.
 
 **1. Register a user** (use a unique email if this one is already taken)
 
@@ -786,10 +786,43 @@ Domain errors: `McqNotFoundError`, `ChoiceNotFoundError`, `UserNotFoundError` (r
 1. [x] Write preview-helper tests (red)
 2. [x] Implement `src/lib/mcq/preview-ui.ts` + preview dialog submit flow
 3. [x] Confirm green
+4. [x] Hide attempt count on preview; keep recording via `POST /api/mcqs/:id/attempts`
+5. [x] Commit / push / deploy Phase 10 review fix
 
 **Deliverables:** `src/lib/mcq/preview-ui.ts`, `src/lib/mcq/preview-ui.test.ts`, `src/components/mcq/mcq-preview-dialog.tsx`, `src/components/mcq/mcq-list.tsx`
 
 **Depends on:** Phase 9 `COMPLETED` + Phase 7 attempts API + Phase 10 go-ahead
+
+---
+
+### Phase 11: Edit after recorded attempts - COMPLETED
+
+**Objective:** Saving an edit must succeed after Preview has recorded attempts. `mcq_attempts.choice_id` has no `ON DELETE CASCADE`, so replace-choices must clear attempts first.
+
+**Acceptance criteria mapped:**
+- `McqService.update` deletes `mcq_attempts` for that MCQ before `DELETE FROM mcq_choices`
+- No new remote D1 migration
+
+**TDD cycle:**
+
+| Step | Action |
+|------|--------|
+| Red | ✅ Wrote `it('clears attempts for the MCQ before replacing choices on update')`. Confirmed red (`expected -1 to be greater than -1`). |
+| Green | ✅ `DELETE FROM mcq_attempts WHERE mcq_id = ?` before deleting choices. Full run: `Test Files 18 passed` · `Tests 108 passed`. |
+| PRD | ✅ Recorded below; Phase 11 marked `COMPLETED`. |
+
+**Vitest cases** (`src/lib/services/mcq-service.test.ts`) — new:
+
+- `it('clears attempts for the MCQ before replacing choices on update')`
+
+**Tasks:**
+1. [x] Write failing update-order test (red)
+2. [x] Delete attempts before replacing choices
+3. [x] Confirm green
+
+**Deliverables:** `src/lib/services/mcq-service.ts`, `src/lib/services/mcq-service.test.ts`
+
+**Depends on:** Phase 10 `COMPLETED` + Phase 11 go-ahead
 
 ---
 
@@ -837,7 +870,7 @@ CREATE TABLE mcqs (
 ```
 **Ref**: `migrations/0002_create_mcq_tables.sql:3-42` · **Phase**: 2 · **AC**: `mcqs` / choices / attempts columns, FKs, cascade
 
-Applied locally: `npx wrangler d1 migrations apply quizmaker-db --local` (`0002_create_mcq_tables.sql` ✅). Not applied `--remote`.
+Applied locally: `npx wrangler d1 migrations apply quizmaker-db --local` (`0002_create_mcq_tables.sql` ✅). Agents must not run `--remote`. On 2026-09-15, `wrangler d1 migrations list quizmaker-db --remote` reported no pending migrations (remote `quizmaker-db` already current).
 
 #### Implemented (Phase 3)
 
@@ -881,9 +914,10 @@ await this.db
   .bind(id, parsed.data.name, parsed.data.question, parsed.data.createdBy, now, now)
   .run();
 
+await this.db.prepare(`DELETE FROM mcq_attempts WHERE mcq_id = ?1`).bind(id).run();
 await this.db.prepare(`DELETE FROM mcq_choices WHERE mcq_id = ?1`).bind(id).run();
 ```
-**Ref**: `src/lib/services/mcq-service.ts:88-210` · **Phase**: 4 · **AC**: McqService CRUD; update replaces choices
+**Ref**: `src/lib/services/mcq-service.ts:88-197` · **Phase**: 4 + 11 · **AC**: McqService CRUD; update clears attempts then replaces choices
 
 Uses `createMcqSchema` / `updateMcqSchema`. `InvalidChoicesError` on Zod failure; `UserNotFoundError` when `created_by` is missing; `McqNotFoundError` on missing id.
 
@@ -1104,7 +1138,7 @@ await this.db
 | 1 | `src/lib/mcq/navigation.test.ts` | ✅ 6/6 green | App shell routes |
 | 2 | `migrations/mcq-schema.test.ts` | ✅ 5/5 green | Three-table schema |
 | 3 | `src/lib/mcq/schemas.test.ts` | ✅ 9/9 green | Zod choice/attempt rules |
-| 4 | `src/lib/services/mcq-service.test.ts` | ✅ 10/10 green | McqService CRUD |
+| 4 + 11 | `src/lib/services/mcq-service.test.ts` | ✅ 11/11 green | McqService CRUD; edit after attempts |
 | 5 | `src/lib/services/attempt-service.test.ts` | ✅ 6/6 green | AttemptService |
 | 6 | `src/lib/mcq/handlers.test.ts` | ✅ 9/9 green | MCQ HTTP API |
 | 7 | `src/lib/mcq/attempts.test.ts` | ✅ 4/4 green | Attempts HTTP API |
@@ -1119,7 +1153,7 @@ await this.db
 - [x] After login, `/mcq` is shown inside a shadcn app shell (sidebar + header), not a blank “coming soon” page; Log out is in the sidebar *(Phase 1 shell + Phase 9 header cleanup)*
 - [x] Local D1 migration creates `mcqs`, `mcq_choices`, and `mcq_attempts` with the columns, FKs, and timestamps in this PRD *(Phase 2 — Vitest green; applied `--local` only)*
 - [x] Create/update reject fewer than 2 or more than 6 choices, empty labels, and anything other than exactly one correct choice *(Phases 3–4 + 6 — Zod, service, and HTTP 400 green)*
-- [x] `McqService` can list, get, create, update, and delete MCQs; update replaces choices; missing ids fail *(Phase 4 — Vitest green)*
+- [x] `McqService` can list, get, create, update, and delete MCQs; update clears that MCQ’s attempts then replaces choices; missing ids fail *(Phases 4 + 11 — Vitest green)*
 - [x] `AttemptService` records `userId`, `choiceId`, and a snapshot of whether that choice was correct *(Phase 5 — Vitest green)*
 - [x] HTTP: `GET/POST /api/mcqs`, `GET/PUT/DELETE /api/mcqs/:id` use the service layer and documented status codes *(Phase 6 — Vitest green; PowerShell curl verified)*
 - [x] HTTP: `GET/POST /api/mcqs/:id/attempts` record and list attempts *(Phase 7 — Vitest green)*
@@ -1128,6 +1162,7 @@ await this.db
 - [x] Create button goes to `/mcq/new`; Edit goes to `/mcq/:id/edit`; Preview opens a dialog; Delete confirms then removes the row *(Phases 8–9 — Vitest green)*
 - [x] Create/edit form defaults to two choices, allows up to six, and has Save (persist + return to list) and Cancel (return without save) *(Phase 9 — Vitest green)*
 - [x] Preview does not reveal the correct choice; the user selects an option, submits, and sees well-done or try-again from the database snapshot; attempts are recorded until the first correct answer and the count is not shown on preview *(Phase 10 — Vitest green)*
+- [x] Edit save succeeds after Preview has recorded attempts; update deletes those attempts before replacing choices *(Phase 11 — Vitest green)*
 - [ ] Each implemented phase has Vitest coverage that was red before implementation and green after; criteria are only checked when matching tests are green
 
 ---
@@ -1262,6 +1297,13 @@ No new npm libraries were required for the sidebar add.
 **Code Reference:** `src/lib/mcq/preview-ui.ts:38-40` · `src/components/mcq/mcq-preview-dialog.tsx`  
 **Phase:** 10
 
+### Edit failed after Preview
+**Problem:** After Preview submit, Save on edit showed “Could not save the question.”  
+**Cause:** `update` deleted `mcq_choices` while `mcq_attempts.choice_id` still referenced those rows (no `ON DELETE CASCADE`). D1 raised a foreign-key error; the form mapped the 500 to a generic message.  
+**Solution:** `McqService.update` runs `DELETE FROM mcq_attempts WHERE mcq_id = ?` before replacing choices. No remote migration.  
+**Code Reference:** `src/lib/services/mcq-service.ts:187-195`  
+**Phase:** 11
+
 ---
 
 ## Notes for AI Agents
@@ -1285,7 +1327,32 @@ No new npm libraries were required for the sidebar add.
 ## Current Status
 
 **Last Updated:** 2026-09-15  
-**Current Phase:** Phase 10 complete  
-**Status:** COMPLETED — preview records attempts and hides the count  
-**Git:** `feature/mcq-crud`  
-**Next Steps:** Await review of the Phase 10 preview-count hide. Do not commit unless asked.
+**Current Phase:** Phase 11 complete  
+**Status:** COMPLETED — edit after preview attempts; Vitest `18` files / `108` tests.  
+**Git:** `feature/mcq-crud` @ `de011d2` (Phase 11 not committed yet)  
+**Production:** https://aisprints-2026.aisprint.workers.dev  
+**Worker version:** `6b30bb67-38b2-4b5f-905c-98e5a5583d7d`  
+**Remote D1:** `quizmaker-db` — no pending migrations  
+**Next Steps:** Await review of Phase 11. Do not commit unless asked.
+
+### Git commits (this feature)
+
+| Commit | Message |
+|--------|---------|
+| `f0d3ce3` | Add Phase 1 MCQ app shell and technical PRD. |
+| `aa46c2d` | Add Phase 2 local D1 migration for MCQ tables. |
+| `797860c` | Add Phase 3 Zod schemas for MCQ create, update, and attempts. |
+| `b463b3b` | Add Phase 4 McqService CRUD with mocked D1 tests. |
+| `6ec63e5` | Add Phase 5 AttemptService with mocked D1 tests. |
+| `8fbb8e9` | Add Phase 6 MCQ HTTP endpoints with handler tests. |
+| `2758dcf` | Add Phase 7 attempt APIs and Phase 8 MCQ list table. |
+| `495d4b2` | Add Phase 9 create/edit form and keep logout in the sidebar. |
+| `3fa97b3` | Add Phase 10 preview submit flow and attempt count. |
+| `de011d2` | Hide preview attempt count while still recording submits. |
+
+### Production deploys
+
+| When | Worker version | Notes |
+|------|----------------|-------|
+| 2026-09-15 | `70301bf9-5fb0-444f-9652-f7babe6554eb` | Phase 10 preview submit (`3fa97b3`) |
+| 2026-09-15 | `6b30bb67-38b2-4b5f-905c-98e5a5583d7d` | Hide preview attempt count (`de011d2`) — current |

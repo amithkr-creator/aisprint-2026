@@ -185,6 +185,11 @@ export class McqService {
 			.run();
 
 		await this.db
+			.prepare(`DELETE FROM mcq_attempts WHERE mcq_id = ?1`)
+			.bind(id)
+			.run();
+
+		await this.db
 			.prepare(`DELETE FROM mcq_choices WHERE mcq_id = ?1`)
 			.bind(id)
 			.run();

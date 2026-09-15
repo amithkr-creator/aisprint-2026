@@ -190,6 +190,7 @@ describe("McqService", () => {
 		mockStatement({ results: [mcqRow] });
 		mockStatement({ results: [] });
 		const updateStmt = mockStatement({ meta: { changes: 1 } });
+		mockStatement({ meta: { changes: 1 } });
 		const deleteChoices = mockStatement({ meta: { changes: 2 } });
 		mockStatement({ meta: { changes: 1 } });
 		mockStatement({ meta: { changes: 1 } });
@@ -211,6 +212,41 @@ describe("McqService", () => {
 		expect(updated.choices).toHaveLength(2);
 		expect(updateStmt.statement.bind).toHaveBeenCalled();
 		expect(deleteChoices.statement.bind).toHaveBeenCalledWith("mcq-1");
+	});
+
+	it("clears attempts for the MCQ before replacing choices on update", async () => {
+		const { db, prepare, mockStatement } = createMockDb();
+		const service = new McqService(db);
+
+		mockStatement({ results: [mcqRow] });
+		mockStatement({ results: [] });
+		mockStatement({ meta: { changes: 1 } });
+		const deleteAttempts = mockStatement({ meta: { changes: 1 } });
+		mockStatement({ meta: { changes: 2 } });
+		mockStatement({ meta: { changes: 1 } });
+		mockStatement({ meta: { changes: 1 } });
+
+		await service.update("mcq-1", {
+			name: "Addition review",
+			question: "What is 3 + 1?",
+			choices: [
+				{ label: "5", isCorrect: false },
+				{ label: "4", isCorrect: true },
+			],
+		});
+
+		const sql = prepare.mock.calls.map((call) => String(call[0]));
+		const attemptsIndex = sql.findIndex((statement) =>
+			statement.includes("DELETE FROM mcq_attempts"),
+		);
+		const choicesIndex = sql.findIndex((statement) =>
+			statement.includes("DELETE FROM mcq_choices"),
+		);
+
+		expect(attemptsIndex).toBeGreaterThan(-1);
+		expect(choicesIndex).toBeGreaterThan(-1);
+		expect(attemptsIndex).toBeLessThan(choicesIndex);
+		expect(deleteAttempts.statement.bind).toHaveBeenCalledWith("mcq-1");
 	});
 
 	it("deletes an existing MCQ by id", async () => {
